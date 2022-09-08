@@ -15,7 +15,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 ==================================================================================
- */
+*/
 /*
  * ric_control_response.c
  *
@@ -189,8 +189,8 @@ bool ric_control_response::set_fields(SuccessfulOutcome_t *successMsg, ric_contr
 	ies_ricreq->id = ProtocolIE_ID_id_RICrequestID;
 	ies_ricreq->value.present = RICcontrolAcknowledge_IEs__value_PR_RICrequestID;
 	RICrequestID_t *ricrequest_ie = &ies_ricreq->value.choice.RICrequestID;
-	ricrequest_ie->ricRequestorID = dinput.req_id;
-	//ricrequest_ie->ricRequestSequenceNumber = dinput.req_seq_no;
+	ricrequest_ie->ricRequestorID = dinput.requestor_id;
+	ricrequest_ie->ricInstanceID = dinput.instance_id;
 	//ASN_SEQUENCE_ADD(&(ric_acknowledge->protocolIEs), ies_ricreq);
 
 	ie_index = 1;
@@ -202,22 +202,26 @@ bool ric_control_response::set_fields(SuccessfulOutcome_t *successMsg, ric_contr
 	*ranfunction_ie = dinput.func_id;
 	//ASN_SEQUENCE_ADD(&(ric_acknowledge->protocolIEs), ies_ranfunc);
 
-	// ie_index = 2;
-	// RICcontrolAcknowledge_IEs_t *ies_riccallprocessid = &IE_array[ie_index];
-	// ies_riccallprocessid->criticality = Criticality_reject;
-	// ies_riccallprocessid->id = ProtocolIE_ID_id_RICcallProcessID;
-	// ies_riccallprocessid->value.present = RICcontrolAcknowledge_IEs__value_PR_RICcallProcessID;
-	// RICcallProcessID_t *riccallprocessid_ie = &ies_riccallprocessid->value.choice.RICcallProcessID;
-	// riccallprocessid_ie->buf = dinput.call_process_id;
-	// riccallprocessid_ie->size = dinput.call_process_id_size;
-	// ASN_SEQUENCE_ADD(&(ric_acknowledge->protocolIEs), ies_riccallprocessid);
+	if (dinput.call_process_id_size > 0) {
+		// ie_index = 2;
+		ie_index++;
+		RICcontrolAcknowledge_IEs_t *ies_riccallprocessid = &IE_array[ie_index];
+		ies_riccallprocessid->criticality = Criticality_reject;
+		ies_riccallprocessid->id = ProtocolIE_ID_id_RICcallProcessID;
+		ies_riccallprocessid->value.present = RICcontrolAcknowledge_IEs__value_PR_RICcallProcessID;
+		RICcallProcessID_t *riccallprocessid_ie = &ies_riccallprocessid->value.choice.RICcallProcessID;
+		riccallprocessid_ie->buf = dinput.call_process_id;
+		riccallprocessid_ie->size = dinput.call_process_id_size;
+		// ASN_SEQUENCE_ADD(&(ric_acknowledge->protocolIEs), ies_riccallprocessid);
+	}
 
-	ie_index = 2;
-	RICcontrolAcknowledge_IEs_t *ies_ric_cause = &IE_array[ie_index];
-	ies_ric_cause->criticality = Criticality_reject;
-	ies_ric_cause->id = ProtocolIE_ID_id_RICcontrolStatus;
-	ies_ric_cause->value.present = RICcontrolAcknowledge_IEs__value_PR_RICcontrolStatus;
-	ies_ric_cause->value.choice.RICcontrolStatus = dinput.control_status;
+	// ie_index = 2;	// FIXME Huff: RicControlOutcome (commented out since this msg flows from E2Sim to RIC)
+	// ie_index++.
+	// RICcontrolAcknowledge_IEs_t *ies_ric_cause = &IE_array[ie_index];
+	// ies_ric_cause->criticality = Criticality_reject;
+	// ies_ric_cause->id = ProtocolIE_ID_id_RICcontrolStatus;
+	// ies_ric_cause->value.present = RICcontrolAcknowledge_IEs__value_PR_RICcontrolStatus;
+	// ies_ric_cause->value.choice.RICcontrolStatus = dinput.control_status; // should be RicControlOutcome
 	//ASN_SEQUENCE_ADD(&(ric_acknowledge->protocolIEs), ies_ric_cause);
 
 	return true;
@@ -245,8 +249,8 @@ bool ric_control_response::set_fields(UnsuccessfulOutcome_t *unsuccessMsg, ric_c
 	ies_ricreq->id = ProtocolIE_ID_id_RICrequestID;
 	ies_ricreq->value.present = RICcontrolFailure_IEs__value_PR_RICrequestID;
 	RICrequestID_t *ricrequest_ie = &(ies_ricreq->value.choice.RICrequestID);
-	ricrequest_ie->ricRequestorID = dinput.req_id;
-	//ricrequest_ie->ricRequestSequenceNumber = dinput.req_seq_no;
+	ricrequest_ie->ricRequestorID = dinput.requestor_id;
+	ricrequest_ie->ricInstanceID = dinput.instance_id;
 	//ASN_SEQUENCE_ADD(&(ric_failure->protocolIEs), ies_ricreq);
 
 	ie_index = 1;
@@ -258,17 +262,20 @@ bool ric_control_response::set_fields(UnsuccessfulOutcome_t *unsuccessMsg, ric_c
 	*ranfunction_ie = dinput.func_id;
 	//ASN_SEQUENCE_ADD(&(ric_failure->protocolIEs), ies_ranfunc);
 
-	// ie_index = 2;
-	// RICcontrolFailure_IEs_t *ies_riccallprocessid = &IE_failure_array[i];
-	// ies_riccallprocessid->criticality = Criticality_reject;
-	// ies_riccallprocessid->id = ProtocolIE_ID_id_RICcallProcessID;
-	// ies_riccallprocessid->value.present = RICcontrolFailure_IEs__value_PR_RICcallProcessID;
-	// RICcallProcessID_t *riccallprocessid_ie = &(ies_riccallprocessid->value.choice.RICcallProcessID);
-	// riccallprocessid_ie->buf = dinput.call_process_id;
-	// riccallprocessid_ie->size = dinput.call_process_id_size;
-	// ASN_SEQUENCE_ADD(&(ric_failure->protocolIEs), ies_riccallprocessid);
+	if (dinput.call_process_id_size > 0) {
+		// ie_index = 2;
+		ie_index++;
+		RICcontrolFailure_IEs_t *ies_riccallprocessid = &IE_failure_array[ie_index];
+		ies_riccallprocessid->criticality = Criticality_reject;
+		ies_riccallprocessid->id = ProtocolIE_ID_id_RICcallProcessID;
+		ies_riccallprocessid->value.present = RICcontrolFailure_IEs__value_PR_RICcallProcessID;
+		RICcallProcessID_t *riccallprocessid_ie = &(ies_riccallprocessid->value.choice.RICcallProcessID);
+		riccallprocessid_ie->buf = dinput.call_process_id;
+		riccallprocessid_ie->size = dinput.call_process_id_size;
+		// ASN_SEQUENCE_ADD(&(ric_failure->protocolIEs), ies_riccallprocessid);
+	}
 
-	ie_index = 2;
+	ie_index++;
 	RICcontrolFailure_IEs_t *ies_ric_cause = &IE_failure_array[ie_index];
 	ies_ric_cause->criticality = Criticality_ignore;
 	ies_ric_cause->id = ProtocolIE_ID_id_Cause;
@@ -276,25 +283,28 @@ bool ric_control_response::set_fields(UnsuccessfulOutcome_t *unsuccessMsg, ric_c
 	Cause_t * ric_cause = &(ies_ric_cause->value.choice.Cause);
 	ric_cause->present = (Cause_PR)dinput.cause;
 
-	switch(dinput.cause){
-	case Cause_PR_ricService:
-		ric_cause->choice.ricService = dinput.sub_cause;
-		break;
-	case Cause_PR_transport:
-		ric_cause->choice.transport = dinput.sub_cause;
-		break;
-	case Cause_PR_protocol:
-		ric_cause->choice.protocol= dinput.sub_cause;
-		break;
-	case Cause_PR_misc:
-		ric_cause->choice.misc = dinput.sub_cause;
-		break;
-	case Cause_PR_ricRequest:
-		ric_cause->choice.ricRequest = dinput.sub_cause;
-		break;
-	default:
-		std::cout <<"Error ! Illegal cause enum" << dinput.cause << std::endl;
-		return false;
+	switch(dinput.cause) {
+		case Cause_PR_ricService:
+			ric_cause->choice.ricService = dinput.sub_cause;
+			break;
+		case Cause_PR_transport:
+			ric_cause->choice.transport = dinput.sub_cause;
+			break;
+		case Cause_PR_protocol:
+			ric_cause->choice.protocol= dinput.sub_cause;
+			break;
+		case Cause_PR_misc:
+			ric_cause->choice.misc = dinput.sub_cause;
+			break;
+		case Cause_PR_ricRequest:
+			ric_cause->choice.ricRequest = dinput.sub_cause;
+			break;
+		case Cause_PR_e2Node:
+			ric_cause->choice.e2Node = dinput.sub_cause;
+			break;
+		default:
+			std::cout <<"Error ! Illegal cause enum" << dinput.cause << std::endl;
+			return false;
 	}
 
 	//ASN_SEQUENCE_ADD(&(ric_failure->protocolIEs), ies_ric_cause);
@@ -319,23 +329,24 @@ bool ric_control_response:: get_fields(SuccessfulOutcome_t * success_msg,  ric_c
 		switch(memb_ptr->id)
 		{
 
-		case (ProtocolIE_ID_id_RICcallProcessID):
-  			dout.call_process_id =  memb_ptr->value.choice.RICcallProcessID.buf;
-		dout.call_process_id_size = memb_ptr->value.choice.RICcallProcessID.size;
-		break;
+			case (ProtocolIE_ID_id_RICcallProcessID):
+				dout.call_process_id = memb_ptr->value.choice.RICcallProcessID.buf;
+				dout.call_process_id_size = memb_ptr->value.choice.RICcallProcessID.size;
+			break;
 
-		case (ProtocolIE_ID_id_RICrequestID):
-  			dout.req_id = memb_ptr->value.choice.RICrequestID.ricRequestorID;
-		//dout.req_seq_no = memb_ptr->value.choice.RICrequestID.ricRequestSequenceNumber;
-		break;
+			case (ProtocolIE_ID_id_RICrequestID):
+				dout.requestor_id = memb_ptr->value.choice.RICrequestID.ricRequestorID;
+				dout.instance_id = memb_ptr->value.choice.RICrequestID.ricInstanceID;
+			break;
 
-		case (ProtocolIE_ID_id_RANfunctionID):
-  			dout.func_id = memb_ptr->value.choice.RANfunctionID;
-		break;
+			case (ProtocolIE_ID_id_RANfunctionID):
+				dout.func_id = memb_ptr->value.choice.RANfunctionID;
+			break;
 
-		case (ProtocolIE_ID_id_Cause):
-  			dout.control_status = memb_ptr->value.choice.RICcontrolStatus;
-		break;
+			case (ProtocolIE_ID_id_RICcontrolOutcome):
+				dout.control_outcome_format1 = memb_ptr->value.choice.RICcontrolOutcome.buf;
+				dout.control_outcome_format1_size = memb_ptr->value.choice.RICcontrolOutcome.size;
+			break;
 
 		}
 
@@ -366,42 +377,45 @@ bool ric_control_response:: get_fields(UnsuccessfulOutcome_t * unsuccess_msg,  r
 		break;
 
 		case (ProtocolIE_ID_id_RICrequestID):
-  			dout.req_id = memb_ptr->value.choice.RICrequestID.ricRequestorID;
-		//dout.req_seq_no = memb_ptr->value.choice.RICrequestID.ricRequestSequenceNumber;
+  			dout.requestor_id = memb_ptr->value.choice.RICrequestID.ricRequestorID;
+			dout.instance_id = memb_ptr->value.choice.RICrequestID.ricInstanceID;
 		break;
 
 		case (ProtocolIE_ID_id_RANfunctionID):
   			dout.func_id = memb_ptr->value.choice.RANfunctionID;
 		break;
 
-
 		case (ProtocolIE_ID_id_Cause):
   			dout.cause = memb_ptr->value.choice.Cause.present;
-		switch(dout.cause){
-		case  Cause_PR_ricService :
-			dout.sub_cause = memb_ptr->value.choice.Cause.choice.ricService;
-			break;
+			switch(dout.cause){
+				case  Cause_PR_ricService :
+					dout.sub_cause = memb_ptr->value.choice.Cause.choice.ricService;
+					break;
 
-		case Cause_PR_transport :
-			dout.sub_cause = memb_ptr->value.choice.Cause.choice.transport;
-			break;
+				case Cause_PR_transport :
+					dout.sub_cause = memb_ptr->value.choice.Cause.choice.transport;
+					break;
 
-		case  Cause_PR_protocol :
-			dout.sub_cause = memb_ptr->value.choice.Cause.choice.protocol;
-			break;
+				case  Cause_PR_protocol :
+					dout.sub_cause = memb_ptr->value.choice.Cause.choice.protocol;
+					break;
 
-		case Cause_PR_misc :
-			dout.sub_cause = memb_ptr->value.choice.Cause.choice.misc;
-			break;
+				case Cause_PR_misc :
+					dout.sub_cause = memb_ptr->value.choice.Cause.choice.misc;
+					break;
 
-		case Cause_PR_ricRequest :
-			dout.sub_cause = memb_ptr->value.choice.Cause.choice.ricRequest;
-			break;
+				case Cause_PR_ricRequest :
+					dout.sub_cause = memb_ptr->value.choice.Cause.choice.ricRequest;
+					break;
 
-		default:
-			dout.sub_cause = -1;
-			break;
-		}
+				case Cause_PR_e2Node :
+					dout.sub_cause = memb_ptr->value.choice.Cause.choice.e2Node;
+					break;
+
+				default:
+					dout.sub_cause = -1;
+					break;
+			}
 
 		default:
 			break;
@@ -412,4 +426,3 @@ bool ric_control_response:: get_fields(UnsuccessfulOutcome_t * unsuccess_msg,  r
 	return true;
 
 }
-

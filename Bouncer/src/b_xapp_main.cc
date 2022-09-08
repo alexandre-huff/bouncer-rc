@@ -20,6 +20,8 @@
 #include <cpprest/http_listener.h>
 #include <cpprest/json.h>
 #include <cpprest/uri.h>
+#include <mdclog/mdclog.h>
+
 using namespace web;
 using namespace web::http;
 using namespace web::http::experimental::listener;
@@ -77,7 +79,7 @@ void handle_put(http_request request)
 
 void start_server()
 {
-        
+
          utility::string_t port = U("8080");
          utility::string_t address = U("http://0.0.0.0:");
          address.append(port);
@@ -98,7 +100,7 @@ void start_server()
          	.then([&listener]() { })
          	.wait();
 
-      	while (true);
+      	// while (true);	// FIXME Huff: it seems that this is causing CPU usage at 100% (I've commented out)
    	}
    	catch (exception const & e)
    	{
@@ -121,7 +123,9 @@ int main(int argc, char *argv[]){
 
 	thread_id << my_id;
 
-	mdclog_write(MDCLOG_INFO, "Starting thread %s",  thread_id.str().c_str());
+	mdclog_format_initialize(0);	// init mdclog by reading CONFIG_MAP_NAME env var
+
+	mdclog_write(MDCLOG_INFO, "Starting bouncer-xapp thread id %s",  thread_id.str().c_str());
 
 	//get configuration
 	XappSettings config;
@@ -158,7 +162,7 @@ int main(int argc, char *argv[]){
 	t1.detach();
 	b_xapp->startup(sub_handler);
 
-	sleep(10);
+	sleep(2);
 
 
 	//start listener threads and register message handlers.
@@ -167,9 +171,9 @@ int main(int argc, char *argv[]){
 
 	std::unique_ptr<XappMsgHandler> mp_handler = std::make_unique<XappMsgHandler>(config[XappSettings::SettingName::XAPP_ID], sub_handler);
 
-	b_xapp->start_xapp_receiver(std::ref(*mp_handler));
+	b_xapp->start_xapp_receiver(std::ref(*mp_handler), num_threads);
 
-	sleep(20);//waiting for some time before sending delete.
+	sleep(360000);//waiting for some time before sending delete.
 
 
 	b_xapp->shutdown();//will start the sending delete procedure.

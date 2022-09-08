@@ -33,11 +33,19 @@
 #include <E2SM-Bouncer-ControlMessage-Format1.h>
 #include <B-Header.h>
 #include <B-Message.h>
+
+#include <E2SM-RC-ControlHeader.h>
+#include <E2SM-RC-ControlMessage.h>
+#include <E2SM-RC-CallProcessID.h>
+#include <E2SM-RC-ControlHeader-Format1.h>
+#include <E2SM-RC-ControlMessage-Format1.h>
+
 class e2sm_control {
 public:
 	e2sm_control(void);
   ~e2sm_control(void);
 
+  // E2SM KPM
   bool set_fields(E2SM_Bouncer_ControlHeader_t *, e2sm_control_helper &);
   bool set_fields(E2SM_Bouncer_ControlMessage_t *, e2sm_control_helper &);
 
@@ -47,15 +55,32 @@ public:
   bool encode_control_header(unsigned char *, size_t *, e2sm_control_helper &);
   bool encode_control_message(unsigned char*, size_t *, e2sm_control_helper &);
 
+  // E2SM RC
+  bool set_fields(E2SM_RC_ControlHeader_t *control_header, UEID_t *ueid);
+  bool set_fields(E2SM_RC_ControlMessage_t *control_msg);
+
+  // bool get_fields(E2SM_RC_ControlHeader_t *control_header, e2sm_rc_control_helper &helper);
+  // bool get_fields(E2SM_RC_ControlMessage_t *control_msg, e2sm_rc_control_helper &helper);
+
+  bool encode_rc_control_header(unsigned char *buf, size_t *size, UEID_t *ueid);
+  bool encode_rc_control_message(unsigned char *buf, size_t *size);
 
   std::string  get_error (void) const {return error_string ;};
 
 private:
+  E2SM_RC_ControlHeader_Format1_t *generate_e2sm_rc_control_header_format1(UEID_t *ueid);
+  E2SM_RC_ControlMessage_Format1_t *generate_e2sm_rc_control_msg_format1();
+  OCTET_STRING_t *generate_and_encode_nr_cgi(const char *plmnid, unsigned long nr_cell_id);
+  bool generate_e2sm_rc_ueid(UEID_t *ueid);
 
   E2SM_Bouncer_ControlHeader_t * control_head; // used for encoding
   E2SM_Bouncer_ControlMessage_t* control_msg;
   E2SM_Bouncer_ControlHeader_Format1_t head_fmt1;
   E2SM_Bouncer_ControlMessage_Format1_t msg_fmt1;
+
+  E2SM_RC_ControlHeader_t *rc_control_header;
+  E2SM_RC_ControlMessage_t *rc_control_msg;
+  E2SM_RC_CallProcessID_t *rc_call_proc_id;
 
 
   size_t errbuf_len;

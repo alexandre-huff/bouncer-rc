@@ -1,0 +1,7 @@
+*.o
+*.stash
+*.stash.inc
+
+b_xapp_main
+
+*.vscode

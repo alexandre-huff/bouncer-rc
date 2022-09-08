@@ -82,50 +82,49 @@ void XappSettings::loadCmdlineSettings(int argc, char **argv){
 
 void XappSettings::loadDefaultSettings(){
 
-
-		 if(theSettings[XAPP_NAME].empty()){
-		  theSettings[XAPP_NAME] = DEFAULT_XAPP_NAME;
-		  }
-
-	  	  if(theSettings[XAPP_ID].empty()){
-	  		  theSettings[XAPP_ID] = DEFAULT_XAPP_NAME; //for now xapp_id is same as xapp_name since single xapp instance.
-	  	  }
-	  	  if(theSettings[LOG_LEVEL].empty()){
-	  		  theSettings[LOG_LEVEL] = DEFAULT_LOG_LEVEL;
-	  	  }
-	  	  if(theSettings[BOUNCER_PORT].empty()){
-	  		  theSettings[BOUNCER_PORT] = DEFAULT_PORT;
-	  	  }
-	  	  if(theSettings[MSG_MAX_BUFFER].empty()){
-	  		  theSettings[MSG_MAX_BUFFER] = DEFAULT_MSG_MAX_BUFFER;
-	  	  }
-
-	  	 if(theSettings[THREADS].empty()){
-	  		  		  theSettings[THREADS] = DEFAULT_THREADS;
-	  		  	  }
-
+	if(theSettings[XAPP_NAME].empty()){
+		theSettings[XAPP_NAME] = DEFAULT_XAPP_NAME;
+	}
+	if(theSettings[XAPP_ID].empty()){
+		theSettings[XAPP_ID] = DEFAULT_XAPP_NAME; //for now xapp_id is same as xapp_name since single xapp instance.
+	}
+	if(theSettings[LOG_LEVEL].empty()){
+		theSettings[LOG_LEVEL] = DEFAULT_LOG_LEVEL;
+	}
+	if(theSettings[BOUNCER_PORT].empty()){
+		theSettings[BOUNCER_PORT] = DEFAULT_PORT;
+	}
+	if(theSettings[MSG_MAX_BUFFER].empty()){
+		theSettings[MSG_MAX_BUFFER] = DEFAULT_MSG_MAX_BUFFER;
+	}
+	if(theSettings[THREADS].empty()){
+		theSettings[THREADS] = DEFAULT_THREADS;
+	}
 
 }
 
 void XappSettings::loadEnvVarSettings(){
 
-	  if (const char *env_xname = std::getenv("XAPP_NAME")){
-		  theSettings[XAPP_NAME].assign(env_xname);
-		  mdclog_write(MDCLOG_INFO,"Xapp Name set to %s from environment variable", theSettings[XAPP_NAME].c_str());
-	  }
-	  if (const char *env_xid = std::getenv("XAPP_NAME")){
-		   theSettings[XAPP_ID].assign(env_xid);
-		   mdclog_write(MDCLOG_INFO,"Xapp ID set to %s from environment variable", theSettings[XAPP_ID].c_str());
-	  }
-
-	  if (const char *env_ports = std::getenv("BOUNCER_PORT")){
-		  theSettings[BOUNCER_PORT].assign(env_ports);
-	 	  mdclog_write(MDCLOG_INFO,"Ports set to %s from environment variable", theSettings[BOUNCER_PORT].c_str());
-	  }
-	  if (const char *env_ports = std::getenv("MSG_MAX_BUFFER")){
-	 		  theSettings[MSG_MAX_BUFFER].assign(env_ports);
-	 	 	  mdclog_write(MDCLOG_INFO,"Ports set to %s from environment variable", theSettings[MSG_MAX_BUFFER].c_str());
-	 	  }
+	if (const char *env_xname = std::getenv("XAPP_NAME")){
+		theSettings[XAPP_NAME].assign(env_xname);
+		mdclog_write(MDCLOG_INFO,"Xapp Name set to %s from environment variable", theSettings[XAPP_NAME].c_str());
+	}
+	if (const char *env_xid = std::getenv("XAPP_NAME")){
+		theSettings[XAPP_ID].assign(env_xid);
+		mdclog_write(MDCLOG_INFO,"Xapp ID set to %s from environment variable", theSettings[XAPP_ID].c_str());
+	}
+	if (const char *env_ports = std::getenv("BOUNCER_PORT")){
+		theSettings[BOUNCER_PORT].assign(env_ports);
+		mdclog_write(MDCLOG_INFO,"Ports set to %s from environment variable", theSettings[BOUNCER_PORT].c_str());
+	}
+	if (const char *env_buf = std::getenv("MSG_MAX_BUFFER")){
+		theSettings[MSG_MAX_BUFFER].assign(env_buf);
+		mdclog_write(MDCLOG_INFO,"Msg max buffer set to %s from environment variable", theSettings[MSG_MAX_BUFFER].c_str());
+	}
+	if (const char *env_threads = std::getenv("THREADS")){
+		theSettings[THREADS].assign(env_threads);
+		mdclog_write(MDCLOG_INFO,"Threads set to %s from environment variable", theSettings[THREADS].c_str());
+	}
 
 }
 

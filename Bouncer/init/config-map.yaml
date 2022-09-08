@@ -1,0 +1,3 @@
+# MDC log reads this file using the CONFIG_MAP_NAME env variable
+# Log levels must be either ERR, WARN, INFO, or DEBUG
+log-level: DEBUG

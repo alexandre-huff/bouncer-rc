@@ -26,7 +26,7 @@
 #ifndef E2AP_RIC_CONTROL_REQUEST_H_
 #define E2AP_RIC_CONTROL_REQUEST_H_
 
-  
+
 #include <iostream>
 #include <errno.h>
 #include <mdclog/mdclog.h>
@@ -38,14 +38,14 @@
 #include "e2ap_control_helper.hpp"
 
 #define NUM_CONTROL_REQUEST_IES 6
-  
-  
+
+
 class ric_control_request{
-    
+
 public:
   ric_control_request(void);
   ~ric_control_request(void);
-    
+
   bool encode_e2ap_control_request(unsigned char *, size_t *,  ric_control_helper &);
   InitiatingMessage_t * get_message (void) ;
   bool set_fields(InitiatingMessage_t *, ric_control_helper &);

@@ -26,7 +26,7 @@
 #ifndef E2AP_RIC_CONTROL_RESPONSE_H_
 #define E2AP_RIC_CONTROL_RESPONSE_H_
 
-  
+
 #include <iostream>
 #include <errno.h>
 #include <mdclog/mdclog.h>
@@ -39,16 +39,16 @@
 #include <ProtocolIE-Field.h>
 #include "e2ap_control_helper.hpp"
 
-#define NUM_CONTROL_ACKNOWLEDGE_IES 3
-#define NUM_CONTROL_FAILURE_IES 3
+#define NUM_CONTROL_ACKNOWLEDGE_IES 4
+#define NUM_CONTROL_FAILURE_IES 5
 
-  
+
 class ric_control_response{
-    
+
 public:
   ric_control_response(void);
   ~ric_control_response(void);
-  
+
   bool encode_e2ap_control_response(unsigned char *, size_t *,  ric_control_helper &, bool);
 
 
@@ -57,20 +57,20 @@ public:
 
   bool set_fields(UnsuccessfulOutcome_t *, ric_control_helper &);
   bool get_fields(UnsuccessfulOutcome_t *, ric_control_helper &);
-  
+
   std::string get_error(void) const {return error_string ; };
 
 private:
-  
+
   E2AP_PDU_t * e2ap_pdu_obj;
   SuccessfulOutcome_t * successMsg;
   UnsuccessfulOutcome_t * unsuccessMsg;
-  
+
   RICcontrolAcknowledge_IEs_t *IE_array;
   RICcontrolFailure_IEs_t *IE_failure_array;
-  
+
   std::string error_string;
-  
+
   char errbuf[128];
   size_t errbuf_len = 128;
 };

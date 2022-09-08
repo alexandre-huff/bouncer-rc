@@ -38,30 +38,30 @@
 
 #define NUM_SUBSCRIPTION_REQUEST_IES 3
 #define INITIAL_REQUEST_LIST_SIZE 4
-  
-class subscription_request{   
+
+class subscription_request{
 public:
 
   subscription_request(std::string name);
   subscription_request(void);
   ~subscription_request(void);
-  
+
   bool encode_e2ap_subscription(unsigned char *, size_t *,  subscription_helper &);
   bool set_fields(InitiatingMessage_t *, subscription_helper &);
   bool get_fields(InitiatingMessage_t *, subscription_helper &);
-    
+
   std::string get_error(void) const{
     return error_string;
   }
-    
+
 private:
-    
+
   InitiatingMessage_t *initMsg;
   E2AP_PDU_t * e2ap_pdu_obj;
 
   RICsubscriptionRequest_IEs_t * IE_array;
   RICaction_ToBeSetup_ItemIEs_t * action_array;
-  unsigned int action_array_size;  
+  unsigned int action_array_size;
   char errbuf[128];
   size_t errbuf_len = 128;
   std::string _name;

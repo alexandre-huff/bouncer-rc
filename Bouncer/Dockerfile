@@ -49,21 +49,21 @@ RUN apt-get update  \
      && apt-get clean
 
 # Install mdclog using debian package hosted at packagecloud.io
-ARG MDC_VER=0.0.4-1
+ARG MDC_VER=0.1.4-1
 RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/mdclog_${MDC_VER}_amd64.deb/download.deb
 RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/mdclog-dev_${MDC_VER}_amd64.deb/download.deb
 RUN dpkg -i mdclog_${MDC_VER}_amd64.deb
 RUN dpkg -i mdclog-dev_${MDC_VER}_amd64.deb
 
 # Install RMr using debian package hosted at packagecloud.io
-ARG RMR_VER=4.0.5
+ARG RMR_VER=4.8.3
 RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rmr_${RMR_VER}_amd64.deb/download.deb
 RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rmr-dev_${RMR_VER}_amd64.deb/download.deb
 RUN dpkg -i rmr_${RMR_VER}_amd64.deb
 RUN dpkg -i rmr-dev_${RMR_VER}_amd64.deb
 
 #Install RNIB libraries
-ARG RNIB_VER=1.0.0
+ARG RNIB_VER=1.2.5
 RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rnib_${RNIB_VER}_all.deb/download.deb
 RUN dpkg -i rnib_${RNIB_VER}_all.deb
 
@@ -121,46 +121,52 @@ RUN git clone https://github.com/Microsoft/cpprestsdk.git casablanca && \
     ninja install && \
     cd ${STAGE_DIR}
     #rm -rf casablanca
+
 ##-----------------------------------
 # Now install the program
 #------------------------------------
 COPY ./ ${STAGE_DIR}
-RUN ls -al
+# RUN ls -al
 
 
-RUN export CPATH=$CPATH:/usr/local/include && \ 
+RUN export CPATH=$CPATH:/usr/local/include && \
     cd src && \
-#    source ./xapp_env.sh \
+    # sh does not have source, so we use .
+    # . ./xapp_env.sh \
+    # source ./xapp_env.sh \
     make clean && \
-    make install 
+    make install
 
-COPY ${SCHEMA_PATH}/* /etc/xapp/ 
+COPY ${SCHEMA_PATH}/* /etc/xapp/
 COPY init/init_script.py /etc/xapp/init_script.py
 COPY init/routes.txt  /etc/xapp/routes.txt
+COPY init/config-map.yaml  /etc/xapp/config-map.yaml
 #---------------------------------------------
 # #Build the final version
 
-FROM ubuntu:18.04
+# FROM ubuntu:18.04 // FIXME Huff: uncomment from here
 
-ARG SCHEMA_PATH
-ARG STAGE_DIR
+# ARG SCHEMA_PATH
+# ARG STAGE_DIR
 
-## copy just the needed libraries install it into the final image
-COPY --from=ricbuild ${STAGE_DIR}/*.deb /tmp/
-COPY --from=ricbuild /usr/local/lib/librmr_si* /usr/local/lib/
-COPY --from=ricbuild /usr/local/lib/libsdl* /usr/local/lib/
-COPY --from=ricbuild /usr/local/libexec/redismodule/libredis* /usr/local/libexec/redismodule/
-RUN dpkg -i /tmp/*.deb
-RUN apt-get update && \
-    apt-get install -y libcurl3 python3 && \
-    apt-get install -y libboost-all-dev cpputest libcpprest-dev libhiredis-dev valgrind && \
-    apt-get clean
-COPY --from=ricbuild /etc/xapp/* /etc/xapp/
-COPY --from=ricbuild /usr/local/bin/b_xapp_main /usr/local/bin/b_xapp_main
-COPY --from=ricbuild /usr/local/lib/libcpprest.so* /usr/local/bin/
-COPY --from=ricbuild /usr/local/lib/libcpprest.so* /usr/local/lib/
-COPY --from=ricbuild /usr/local/include/rnib/*.h /usr/local/include/rnib/
-COPY --from=ricbuild /usr/local/include/rnib/rnibreader.a /usr/local/include/rnib/
+# ## copy just the needed libraries install it into the final image
+# COPY --from=ricbuild ${STAGE_DIR}/*.deb /tmp/
+# COPY --from=ricbuild /usr/local/lib/librmr_si* /usr/local/lib/
+# COPY --from=ricbuild /usr/local/lib/libsdl* /usr/local/lib/
+# COPY --from=ricbuild /usr/local/libexec/redismodule/libredis* /usr/local/libexec/redismodule/
+# RUN dpkg -i /tmp/*.deb
+# RUN apt-get update && \
+#     apt-get install -y libcurl3 python3 && \
+#     # apt-get install -y libboost-all-dev cpputest libcpprest-dev libhiredis-dev valgrind && \
+#     apt-get install -y libboost-all-dev cpputest libcpprest-dev libhiredis-dev && \
+#     apt-get clean
+# COPY --from=ricbuild /etc/xapp/* /etc/xapp/
+# COPY --from=ricbuild /usr/local/bin/b_xapp_main /usr/local/bin/b_xapp_main
+# COPY --from=ricbuild /usr/local/lib/libcpprest.so* /usr/local/bin/
+# COPY --from=ricbuild /usr/local/lib/libcpprest.so* /usr/local/lib/
+# COPY --from=ricbuild /usr/local/include/rnib/*.h /usr/local/include/rnib/
+# COPY --from=ricbuild /usr/local/include/rnib/rnibreader.a /usr/local/include/rnib/
+# FIXME Huff: uncomment to here
 
 
 RUN ldconfig
@@ -172,8 +178,10 @@ ENV  RMR_RTG_SVC="9999" \
      RMR_SEED_RT="/etc/xapp/routes.txt" \
      LD_LIBRARY_PATH="/usr/local/lib:/usr/local/libexec" \
      VERBOSE=0 \
+     CONFIG_MAP_NAME=/etc/xapp/config-map.yaml \
      CONFIG_FILE=/opt/ric/config/config-file.json
-     
-      
 
-CMD python3 /etc/xapp/init_script.py $CONFIG_FILE
+
+
+# CMD python3 /etc/xapp/init_script.py $CONFIG_FILE
+CMD ["sleep", "360000"]

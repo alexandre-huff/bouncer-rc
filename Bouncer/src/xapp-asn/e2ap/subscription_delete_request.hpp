@@ -34,28 +34,28 @@
 
 #define NUM_SUBSCRIPTION_DELETE_IES 2
 
-class subscription_delete{   
+class subscription_delete{
 public:
 
   subscription_delete(void);
   ~subscription_delete(void);
-  
+
   bool encode_e2ap_subscription(unsigned char *, size_t *,  subscription_helper &);
   bool set_fields(subscription_helper &);
   bool get_fields(InitiatingMessage_t *, subscription_helper &);
-    
+
   std::string get_error(void) const {
     return error_string ;
   }
-    
+
 private:
-    
+
   InitiatingMessage_t *initMsg;
   E2AP_PDU_t * e2ap_pdu_obj;
 
   RICsubscriptionDeleteRequest_IEs_t * IE_array;
 
-  
+
   char errbuf[128];
   size_t errbuf_len = 128;
   std::string _name;

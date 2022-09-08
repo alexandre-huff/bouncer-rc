@@ -37,39 +37,42 @@
 #define NUM_SUBSCRIPTION_RESPONSE_IES 4
 #define NUM_SUBSCRIPTION_FAILURE_IES 3
 #define INITIAL_RESPONSE_LIST_SIZE 4
-  
-class subscription_response{   
+
+class subscription_response{
 public:
-    
+
   subscription_response(void);
   ~subscription_response(void);
-    
-  bool encode_e2ap_subscription_response(unsigned char *, size_t *,  subscription_response_helper &, bool);
+
+  bool encode_e2ap_subscription_response_success(unsigned char *, size_t *, subscription_response_helper &);
+  bool encode_e2ap_subscription_response_unsuccess(unsigned char *, size_t *, subscription_response_failure_helper &);
   void get_fields(SuccessfulOutcome_t *, subscription_response_helper &);
-  void get_fields(UnsuccessfulOutcome_t *, subscription_response_helper &);
-  
+  void get_fields(UnsuccessfulOutcome_t *,  subscription_response_failure_helper &);
+
   std::string get_error(void) const{
     return error_string;
   }
-    
+
 private:
 
+  bool encode_e2ap_subscription_response(unsigned char *, size_t *);
+
   void set_fields_success( subscription_response_helper &);
-  void set_fields_unsuccess( subscription_response_helper &);
+  void set_fields_unsuccess( subscription_response_failure_helper &);
 
   E2AP_PDU_t * e2ap_pdu_obj;
   SuccessfulOutcome_t * successMsg;
   UnsuccessfulOutcome_t * unsuccessMsg;
-    
+
 
   RICsubscriptionResponse_IEs_t *IE_array;
   RICsubscriptionFailure_IEs_t *IE_Failure_array;
-  
+
 
   RICaction_Admitted_ItemIEs_t * ie_admitted_list;
   RICaction_NotAdmitted_ItemIEs_t * ie_not_admitted_list;
   unsigned int ie_admitted_list_size, ie_not_admitted_list_size;
-  
+
   char errbuf[128];
   size_t errbuf_len = 128;
   std::string error_string;

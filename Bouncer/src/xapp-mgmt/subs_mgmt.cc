@@ -34,7 +34,7 @@ void SubscriptionHandler::clear(void){
     std::lock_guard<std::mutex> lock(*(_data_lock).get());
     status_table.clear();
   }
-  
+
 };
 
 
@@ -45,7 +45,7 @@ bool SubscriptionHandler::add_request_entry(transaction_identifier id, transacti
   if(search != status_table.end()){
     return false;
   }
-  
+
   status_table[id] = status;
   return true;
 
@@ -66,10 +66,10 @@ bool SubscriptionHandler::delete_request_entry(transaction_identifier id){
 
   if (search != status_table.end()){
     status_table.erase(search);
-    mdclog_write(MDCLOG_INFO,"Entry for Transaction ID deleted: %d",id);
+    mdclog_write(MDCLOG_INFO,"Entry for Transaction ID deleted: %s",id.c_str());
     return true;
   }
-  mdclog_write(MDCLOG_INFO,"Entry not found in SubscriptionHandler for Transaction ID: %d",id);
+  mdclog_write(MDCLOG_INFO,"Entry not found in SubscriptionHandler for Transaction ID: %s",id.c_str());
 
   return false;
 };
@@ -100,7 +100,7 @@ int SubscriptionHandler::get_request_status(transaction_identifier id){
 
   return -1;
 }
-				   
+
 
 
 bool SubscriptionHandler::is_request_entry(transaction_identifier id){
@@ -127,16 +127,16 @@ void SubscriptionHandler::manage_subscription_response(int message_type, transac
 	  	//from the message type we can know if its a success/failure etc.
 	  	if(message_type==RIC_SUB_RESP)
 	  		this->set_request_status(id, request_success);
-	 
+
 	  	if(message_type==RIC_SUB_DEL_RESP)
 	  		this->set_request_status(id, request_success);
 
 	  	if(message_type==RIC_SUB_FAILURE)
 	  		this->set_request_status(id,request_failed);
-	  
+
 	  	if(message_type==RIC_SUB_DEL_FAILURE)
 	  		this->set_request_status(id,request_failed);
-	  
+
 	  	mdclog_write(MDCLOG_INFO,"Subscription Handler: Status for meid %s IS: %d",id.c_str(),this->get_request_status(id));
 
 

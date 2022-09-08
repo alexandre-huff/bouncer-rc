@@ -5,9 +5,9 @@
             {
                 "name": "bouncer-xapp",
                 "image": {
-		"registry": "nexus3.o-ran-sc.org:10002",
-		"name": "o-ran-sc/ric-app-bouncer",
-		"tag": "2.0.0"
+                    "registry": "127.0.0.1:32000",
+                    "name": "bouncer",
+                    "tag": "latest"
                	}
             }
         ],

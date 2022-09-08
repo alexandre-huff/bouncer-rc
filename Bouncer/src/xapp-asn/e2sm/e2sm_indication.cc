@@ -71,7 +71,9 @@ bool e2sm_indication::encode_indication_header(unsigned char *buf, size_t *size,
     return false;
   }
 
-  xer_fprint(stdout, &asn_DEF_E2SM_Bouncer_IndicationHeader, indication_head);
+  if (mdclog_level_get() > MDCLOG_INFO) {
+    xer_fprint(stdout, &asn_DEF_E2SM_Bouncer_IndicationHeader, indication_head);
+  }
 
   asn_enc_rval_t retval = asn_encode_to_buffer(0, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2SM_Bouncer_IndicationHeader, indication_head, buf, *size);
 
@@ -107,7 +109,9 @@ bool e2sm_indication::encode_indication_message(unsigned char *buf, size_t *size
     return false;
   }
 
-  xer_fprint(stdout, &asn_DEF_E2SM_Bouncer_IndicationMessage, indication_msg);
+  if (mdclog_level_get() > MDCLOG_INFO) {
+    xer_fprint(stdout, &asn_DEF_E2SM_Bouncer_IndicationMessage, indication_msg);
+  }
 
   asn_enc_rval_t retval = asn_encode_to_buffer(0, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2SM_Bouncer_IndicationMessage, indication_msg, buf, *size);
 

@@ -26,7 +26,7 @@
 #ifndef E2AP_RIC_INDICATION_H_
 #define E2AP_RIC_INDICATION_H_
 
-  
+
 #include <iostream>
 #include <errno.h>
 #include <mdclog/mdclog.h>
@@ -38,23 +38,23 @@
 #include "e2ap_indication_helper.hpp"
 
 #define NUM_INDICATION_IES 8
-  
+
 
 
 class ric_indication{
-  
+
 public:
   ric_indication(void);
   ~ric_indication(void);
-  
+
   bool encode_e2ap_indication(unsigned char *, size_t *,  ric_indication_helper &);
   InitiatingMessage_t * get_message (void) ;
   bool set_fields(InitiatingMessage_t *, ric_indication_helper &);
   bool get_fields(InitiatingMessage_t *, ric_indication_helper &);
   std::string get_error(void) const {return error_string ; };
-  
+
 private:
-  
+
   E2AP_PDU_t * e2ap_pdu_obj;
   InitiatingMessage_t *initMsg;
   RICindication_IEs_t *IE_array;

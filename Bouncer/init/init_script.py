@@ -32,17 +32,17 @@ def signal_handler(signum, frame):
     else:
         print("Sending signal {0} to xapp ...".format(signum));
         xapp_subprocess.send_signal(signum);
-        
+
 
 def parseConfigJson(config):
-    
+
     for k1 in config.keys():
         if k1 in ParseSection:
             result = ParseSection[k1](config);
             if result == False:
                     return False;
 
-        
+
 #        for k2 in config[k1].keys():
             #print(k2);
 #            if k2 in ParseSection:
@@ -51,7 +51,7 @@ def parseConfigJson(config):
 #                    return False;
 
 
-        
+
 def getMessagingInfo(config):
      if 'messaging' in config.keys() and 'ports' in config['messaging'].keys():
         port_list = config['messaging']['ports']
@@ -72,7 +72,7 @@ def getXappName(config):
         return False;
 
     xapp_name = config[myKey];
-    print("Xapp Name is: " + xapp_name); 
+    print("Xapp Name is: " + xapp_name);
     os.environ["XAPP_NAME"] = xapp_name;
 
 default_routing_file = "/tmp/routeinfo/routes.txt";
@@ -87,13 +87,13 @@ if __name__ == "__main__":
 
     import subprocess;
     cmd = ["/usr/local/bin/b_xapp_main"];
-        
+
     if len(sys.argv) > 1:
         config_file = sys.argv[1];
     else:
         print("Error! No configuration file specified\n");
         sys.exit(1);
-        
+
     if len(sys.argv) > 2:
         cmd[0] = sys.argv[2];
 
@@ -103,9 +103,9 @@ if __name__ == "__main__":
          except Exception as e:
              print(("Error loading json file from {0}. Reason = {1}\n".format(config_file, e)));
              sys.exit(1);
-             
+
     result = parseConfigJson(config);
-    time.sleep(10);
+    time.sleep(5);
     if result == False:
         print("Error parsing json. Not executing xAPP");
         sys.exit(1);
@@ -129,4 +129,4 @@ if __name__ == "__main__":
             else:
                 print("XaPP terminated via signal {0}\n".format(-1 * xapp_status));
                 break;
-                
+

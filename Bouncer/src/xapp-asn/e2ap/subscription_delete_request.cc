@@ -20,35 +20,35 @@
 
 
 #include "subscription_delete_request.hpp"
-  
+
 subscription_delete::subscription_delete(void){
 
   _name = "default";
-  
+
   e2ap_pdu_obj = (E2AP_PDU_t * )calloc(1, sizeof(E2AP_PDU_t));
   assert(e2ap_pdu_obj != 0);
 
   initMsg = (InitiatingMessage_t * )calloc(1, sizeof(InitiatingMessage_t));
   assert(initMsg != 0);
-  
+
   IE_array = (RICsubscriptionDeleteRequest_IEs_t *)calloc(NUM_SUBSCRIPTION_DELETE_IES, sizeof(RICsubscriptionDeleteRequest_IEs_t));
   assert(IE_array != 0);
-  
+
   RICsubscriptionDeleteRequest_t * subscription_delete = &(initMsg->value.choice.RICsubscriptionDeleteRequest);
   for(int i = 0; i < NUM_SUBSCRIPTION_DELETE_IES; i++){
     ASN_SEQUENCE_ADD(&subscription_delete->protocolIEs, &(IE_array[i]));
   }
-  
+
 };
 
 
 
 // Clear assigned protocolIE list from RIC indication IE container
 subscription_delete::~subscription_delete(void){
-    
+
   mdclog_write(MDCLOG_DEBUG, "Freeing subscription delete request object memory");
   RICsubscriptionDeleteRequest_t * subscription_delete = &(initMsg->value.choice.RICsubscriptionDeleteRequest);
-  
+
   for(int i = 0; i < subscription_delete->protocolIEs.list.size; i++){
     subscription_delete->protocolIEs.list.array[i] = 0;
   }
@@ -59,14 +59,14 @@ subscription_delete::~subscription_delete(void){
     subscription_delete->protocolIEs.list.size = 0;
     subscription_delete->protocolIEs.list.array = 0;
   }
-  
+
   free(IE_array);
   free(initMsg);
   e2ap_pdu_obj->choice.initiatingMessage = 0;
 
   ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, e2ap_pdu_obj);
   mdclog_write(MDCLOG_DEBUG, "Freed subscription delete request object memory");
-  
+
 
 };
 
@@ -82,16 +82,16 @@ bool subscription_delete::encode_e2ap_subscription(unsigned char *buf, size_t *s
   initMsg->value.present = InitiatingMessage__value_PR_RICsubscriptionDeleteRequest;
 
   //xer_fprint(stdout, &asn_DEF_E2AP_PDU, e2ap_pdu_obj);
-  
+
   int ret_constr = asn_check_constraints(&asn_DEF_E2AP_PDU, (void *) e2ap_pdu_obj, errbuf, &errbuf_len);
   if(ret_constr){
     error_string.assign(errbuf, errbuf_len);
     error_string = "Constraints failed for encoding subscription delete request. Reason = " + error_string;
     return false;
   }
-  
+
   asn_enc_rval_t res = asn_encode_to_buffer(0, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2AP_PDU, e2ap_pdu_obj, buf, *size);
-    
+
   if(res.encoded == -1){
     error_string.assign(strerror(errno));
     error_string = "Error encoding Subscription Delete Request. Reason = " + error_string;
@@ -106,14 +106,14 @@ bool subscription_delete::encode_e2ap_subscription(unsigned char *buf, size_t *s
       return false;
     }
   }
-    
+
   *size = res.encoded;
   return true;
-    
+
 }
 
 
-bool  subscription_delete::set_fields( subscription_helper &helper)
+bool subscription_delete::set_fields( subscription_helper &helper )
 {
 	static long update_instance=0;//static variable to update ricInstaceID for sending delete req
  	unsigned int ie_index;
@@ -126,11 +126,11 @@ bool  subscription_delete::set_fields( subscription_helper &helper)
  	ricrequest_ie->ricRequestorID = helper.get_request_id();
  	update_instance++;//incrementing ricInstanceID by one, each time the bouncer send delete req
  	ricrequest_ie->ricInstanceID = update_instance;
- 	mdclog_write(MDCLOG_INFO,"instance id for subsdelreq  = %d", update_instance);
+ 	mdclog_write(MDCLOG_INFO,"instance id for subsdelreq  = %ld", update_instance);
  	//ricrequest_ie->ricRequestSequenceNumber = helper.get_req_seq();
 
 
-  
+
   	ie_index = 1;
   	RICsubscriptionDeleteRequest_IEs_t *ies_ranfunc = &IE_array[ie_index];
   	ies_ranfunc->criticality = Criticality_reject;
@@ -140,12 +140,12 @@ bool  subscription_delete::set_fields( subscription_helper &helper)
   	*ranfunction_ie = helper.get_function_id();
   	mdclog_write(MDCLOG_INFO,"ran function  id for subsdelreq  = %d", helper.get_function_id());
   	//*ranfunction_ie =1;
-  
+
   	return true;
 };
 
 
-   
+
 
 bool  subscription_delete:: get_fields(InitiatingMessage_t * init_msg,  subscription_helper & dout)
 {
@@ -154,27 +154,26 @@ bool  subscription_delete:: get_fields(InitiatingMessage_t * init_msg,  subscrip
     error_string = "Invalid reference for initiating message for get string";
     return false;
   }
-  
+
   RICrequestID_t *requestid;
   RANfunctionID_t * ranfunctionid;
-    
+
   for(int edx = 0; edx < init_msg->value.choice.RICsubscriptionDeleteRequest.protocolIEs.list.count; edx++) {
     RICsubscriptionDeleteRequest_IEs_t *memb_ptr = init_msg->value.choice.RICsubscriptionDeleteRequest.protocolIEs.list.array[edx];
-    
-    switch(memb_ptr->id)
-      {
+
+    switch (memb_ptr->id)
+    {
       case (ProtocolIE_ID_id_RICrequestID):
-	requestid = &memb_ptr->value.choice.RICrequestID;
-	//dout.set_request(requestid->ricRequestorID, requestid->ricRequestSequenceNumber);
-	break;
-	  
+        requestid = &memb_ptr->value.choice.RICrequestID;
+        // dout.set_request(requestid->ricRequestorID, requestid->ricRequestSequenceNumber);
+        break;
+
       case (ProtocolIE_ID_id_RANfunctionID):
-	ranfunctionid = &memb_ptr->value.choice.RANfunctionID;
-	dout.set_function_id(*ranfunctionid);
-	break;
-	
-      }
-    
+        ranfunctionid = &memb_ptr->value.choice.RANfunctionID;
+        dout.set_function_id(*ranfunctionid);
+        break;
+    }
+
   //asn_fprint(stdout, &asn_DEF_E2AP_PDU, e2pdu);
   }
 

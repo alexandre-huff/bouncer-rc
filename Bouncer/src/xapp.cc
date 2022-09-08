@@ -78,10 +78,11 @@ void Xapp::startup(SubscriptionHandler &sub_ref) {
 	subhandler_ref = &sub_ref;
 	set_rnib_gnblist();
 
-	sleep(70);
+	sleep(5);
 
 	//send subscriptions.
-	startup_subscribe_requests();
+	// startup_subscribe_kpm_requests();
+	startup_subscribe_rc_requests();
 
 	//read A1 policies
 	//startup_get_policies();
@@ -102,24 +103,29 @@ void Xapp::Run(){
 	return;
 }
 
-//Starting a seperate single receiver
-void Xapp::start_xapp_receiver(XappMsgHandler& mp_handler){
-	//start a receiver thread. Can be multiple receiver threads for more than 1 listening port.
+void Xapp::start_xapp_receiver(XappMsgHandler& mp_handler, int threads){
+	if(threads < 1) {
+		threads = 1;
+	}
 	rmr_ref->set_listen(true);
 	if(xapp_mutex == NULL){
 		xapp_mutex = new std::mutex();
 	}
 
-	mdclog_write(MDCLOG_INFO,"Receiver Thread file= %s, line=%d",__FILE__,__LINE__);
-	std::lock_guard<std::mutex> guard(*xapp_mutex);
-	std::thread th_recv([&](){ rmr_ref->xapp_rmr_receive(std::move(mp_handler), rmr_ref);});
-	xapp_rcv_thread.push_back(std::move(th_recv));
+	for(int i = 0; i < threads; i++) {
+		mdclog_write(MDCLOG_INFO,"Receiver Thread %d, file= %s, line=%d", i, __FILE__, __LINE__);
+		{
+			std::lock_guard<std::mutex> guard(*xapp_mutex);
+			std::thread th_recv([&](){ rmr_ref->xapp_rmr_receive(std::move(mp_handler), rmr_ref);});
+			xapp_rcv_thread.push_back(std::move(th_recv));
+		}
+	}
 	return;
 }
 
 void Xapp::shutdown(){
-	
-        sleep(70);
+
+        sleep(10);
         //send subscriptions delete.
         shutdown_subscribe_deletes();
         return;
@@ -147,12 +153,12 @@ void Xapp::shutdown_subscribe_deletes(void )
 
    	for(int i = 0; i<sz; i++)
    	{
-	 	sleep(15);
+	 	sleep(5);
 	 	//give the message to subscription handler, along with the transmitter.
 	 	strcpy((char*)meid,gnblist[i].c_str());
 		mdclog_write(MDCLOG_INFO,"sending %d subscription delete request out of : %d",i+1, sz);
 	     	mdclog_write(MDCLOG_INFO,"sending subscription delete to ,meid = %s", meid);
-		
+
 		if (SubscriptionIds.size()>0)
 		{
 		auto delJson = pplx::create_task([i,meid]() {
@@ -168,7 +174,7 @@ void Xapp::shutdown_subscribe_deletes(void )
                 ucout << utility::string_t(U("making requests at: ")) << addr <<std::endl;
                 return client.request(methods::DEL);
 
-                 
+
                         })
 
                         // Get the response.
@@ -183,7 +189,7 @@ void Xapp::shutdown_subscribe_deletes(void )
                                         });
 
                                 // serailize the user details.
-                      
+
 
                                         try {
                                                 delJson.wait();
@@ -191,9 +197,9 @@ void Xapp::shutdown_subscribe_deletes(void )
                                         catch (const std::exception& e) {
                                                 printf("Error exception:%s\n", e.what());
                                         }
-										
+
 		}
-		
+
 		else{
 		 mdclog_write(MDCLOG_ERR,"Subscription delete cannot send in file= %s, line=%d for MEID %s as no valid subIDS",__FILE__,__LINE__, meid);
 		}
@@ -207,7 +213,7 @@ void Xapp::shutdown_subscribe_deletes(void )
          	subscription_delete sub_del;
          	subscription_delete sub_recv;
 
- 
+
 		unsigned char buf[BUFFER_SIZE];
 	 	size_t buf_size = BUFFER_SIZE;
 	 	bool res;
@@ -224,7 +230,7 @@ void Xapp::shutdown_subscribe_deletes(void )
 
 	 	mdclog_write(MDCLOG_INFO,"Sending subscription delete  in file= %s, line=%d for MEID %s",__FILE__,__LINE__, meid);
 
-	 	xapp_rmr_header rmr_header; 
+	 	xapp_rmr_header rmr_header;
  	 	rmr_header.message_type = RIC_SUB_DEL_REQ;
  	 	rmr_header.payload_length = buf_size; //data_size
 
@@ -245,7 +251,7 @@ void Xapp::shutdown_subscribe_deletes(void )
 
      	      		mdclog_write(MDCLOG_INFO,"Subscription Delete SUCCESSFUL in file= %s, line=%d for MEID %s",__FILE__,__LINE__, meid);
           	}
-          	else 
+          	else
 		{
 		 	mdclog_write(MDCLOG_ERR,"Subscription Delete FAILED in file= %s, line=%d for MEID %s",__FILE__,__LINE__, meid);
               	}
@@ -253,7 +259,7 @@ void Xapp::shutdown_subscribe_deletes(void )
 	}
 }
 
-void Xapp::startup_subscribe_requests(void ){
+void Xapp::startup_subscribe_kpm_requests(void ){
    bool res;
    size_t data_size = ASN_BUFF_MAX_SIZE;
    unsigned char	data[data_size];
@@ -271,7 +277,7 @@ void Xapp::startup_subscribe_requests(void ){
 
    for(int i = 0; i<sz; i++)
    {
-	 sleep(15);
+	 sleep(5);
 	 strcpy((char*)meid,gnblist[i].c_str());
         mdclog_write(MDCLOG_INFO,"sending %d subscription request out of : %d",i+1, sz);
 
@@ -352,7 +358,7 @@ auto postJson = pplx::create_task([meid,xapp_id]() {
                                                 printf("Error exception:%s\n", e.what());
                                         }
 
-	
+
 	/*
 	 //give the message to subscription handler, along with the transmitter.
 	 strcpy((char*)meid,gnblist[i].c_str());
@@ -388,7 +394,7 @@ auto postJson = pplx::create_task([meid,xapp_id]() {
 	 //mdclog_write(MDCLOG_INFO,"GNBList = %s and ith val = %d", gnblist[i], i);
 
 	 mdclog_write(MDCLOG_INFO,"Sending subscription in file= %s, line=%d for MEID %s",__FILE__,__LINE__, meid);
-	 
+
 	 xapp_rmr_header rmr_header;
  	 rmr_header.message_type = RIC_SUB_REQ;
  	 rmr_header.payload_length = buf_size; //data_size
@@ -396,9 +402,9 @@ auto postJson = pplx::create_task([meid,xapp_id]() {
 	 strcpy((char*)rmr_header.meid,gnblist[i].c_str());
 
 	 auto transmitter = std::bind(&XappRmr::xapp_rmr_send,rmr_ref, &rmr_header, (void*)buf); //(void*)data);
-         
+
          int result = subhandler_ref->manage_subscription_request(gnblist[i], transmitter);
-         
+
        	 if(result==SUBSCR_SUCCESS){
 
      	      mdclog_write(MDCLOG_INFO,"Subscription SUCCESSFUL in file= %s, line=%d for MEID %s",__FILE__,__LINE__, meid);
@@ -406,9 +412,108 @@ auto postJson = pplx::create_task([meid,xapp_id]() {
           else {
 		 mdclog_write(MDCLOG_ERR,"Subscription FAILED in file= %s, line=%d for MEID %s",__FILE__,__LINE__, meid);
               }
-	    */  
+	    */
 	}
-   std::cout<<"\n SubscriptionIds vector size= "<<SubscriptionIds.size()<<"\n"; 
+   std::cout<<"\n SubscriptionIds vector size= "<<SubscriptionIds.size()<<"\n";
+}
+
+void Xapp::startup_subscribe_rc_requests(){
+	bool res;
+	size_t data_size = ASN_BUFF_MAX_SIZE;
+	unsigned char data[data_size];
+	char meid[RMR_MAX_MEID];
+	std::string xapp_id = config_ref->operator[](XappSettings::SettingName::XAPP_ID);
+	// int a =std::stoi(xapp_id);
+	mdclog_write(MDCLOG_INFO, "Preparing to send subscription in file= %s, line=%d", __FILE__, __LINE__);
+
+	auto gnblist = get_rnib_gnblist();
+
+	int sz = gnblist.size();
+	mdclog_write(MDCLOG_INFO, "GNBList size : %d", sz);
+	if (sz <= 0)
+		mdclog_write(MDCLOG_INFO, "Subscriptions cannot be sent as GNBList in RNIB is NULL");
+
+	for (int i = 0; i < sz; i++)
+	{
+		sleep(5);
+		strcpy((char *)meid, gnblist[i].c_str());
+		mdclog_write(MDCLOG_INFO, "sending %d subscription request out of : %d", i + 1, sz);
+
+		// mdclog_write(MDCLOG_INFO,"GNBList,gnblist[i] = %s and ith val = %d", gnblist[i], i);
+		mdclog_write(MDCLOG_INFO, "sending subscription to meid = %s", meid);
+
+		auto postJson = pplx::create_task([meid, xapp_id]()
+			{
+				jsonn jsonObject;
+				jsonObject =
+					{
+						{"SubscriptionId",""},
+						{"ClientEndpoint",{{"Host","service-ricxapp-bouncer-xapp-http.ricxapp"},{"HTTPPort",8080},{"RMRPort",4560}}},
+						{"Meid",meid},
+						{"RANFunctionID",1},
+						{"SubscriptionDetails",
+							{
+								{
+									{"XappEventInstanceId",12345},{"EventTriggers",{2}},
+									{"ActionToBeSetupList",
+										{
+											{
+												{"ActionID",1},{"ActionType","insert"},{"ActionDefinition",{3}},{"SubsequentAction",{{"SubsequentActionType","continue"},{"TimeToWait","w10ms"}}}
+											}
+										}
+									}
+								}
+							}
+						}
+					};
+				std::cout <<jsonObject.dump(4) << "\n";
+				utility::stringstream_t s;
+				s << jsonObject.dump().c_str();
+				web::json::value ret = json::value::parse(s);
+				// std::wcout << ret.serialize().c_str() << std::endl;
+				utility::string_t port = U("8088");
+				utility::string_t address = U("http://service-ricplt-submgr-http.ricplt.svc.cluster.local:");
+				address.append(port);
+				address.append(U("/ric/v1/subscriptions"));
+				uri_builder uri(address);
+				auto addr = uri.to_uri().to_string();
+				http_client client(addr);
+				//std::cout<<uri::validate(addr)<<" validation \n";
+
+				ucout << utility::string_t(U("making requests at: ")) << addr << "\n";
+
+				return client.request(methods::POST,U("/"),ret.serialize(),U("application/json")); })
+
+					// Get the response.
+					.then([](http_response response)
+						{
+						// Check the status code.
+						if (response.status_code() != 201) {
+								throw std::runtime_error("Returned " + std::to_string(response.status_code()));
+						}
+
+						// Convert the response body to JSON object.
+						return response.extract_json(); })
+
+					// serialize the user details.
+					.then([](json::value jsonObject)
+						{
+							std::cout << "\nReceived REST subscription response\n";
+							std::wcout << jsonObject.serialize().c_str() << "\n";
+							std::string tmp;
+							tmp = jsonObject[U("SubscriptionId")].as_string();
+							SubscriptionIds.push_back(tmp); });
+
+		try
+		{
+			postJson.wait();
+		}
+		catch (const std::exception &e)
+		{
+			printf("Error exception:%s\n", e.what());
+		}
+	}
+	std::cout << "\nSubscriptionIds vector size= " << SubscriptionIds.size() << "\n\n";
 }
 
 void Xapp::startup_get_policies(void){

@@ -58,7 +58,7 @@ public:
   void startup(SubscriptionHandler &);
   void shutdown(void);
 
-  void start_xapp_receiver(XappMsgHandler &);
+  void start_xapp_receiver(XappMsgHandler &, int);
   void Run();
 
   //void sdl_data(void);
@@ -75,7 +75,8 @@ public:
   std::vector<std::string> get_rnib_gnblist(){ return rnib_gnblist; }
 
 private:
-  void startup_subscribe_requests(void );
+  void startup_subscribe_kpm_requests(void);
+  void startup_subscribe_rc_requests();
   void shutdown_subscribe_deletes(void);
   void startup_get_policies(void );
 
