@@ -29,12 +29,12 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <unordered_map>
+#include <thread>
 #include "xapp_rmr.hpp"
 #include "xapp_sdl.hpp"
 #include "rapidjson/writer.h"
 #include "rapidjson/document.h"
 #include "rapidjson/error/error.h"
-#include<thread>
 #include "msgs_proc.hpp"
 #include "subs_mgmt.hpp"
 #include "xapp_config.hpp"
@@ -59,9 +59,6 @@ public:
   void shutdown(void);
 
   void start_xapp_receiver(XappMsgHandler &, int);
-  void Run();
-
-  //void sdl_data(void);
 
   Xapp(Xapp const &)=delete;
   Xapp& operator=(Xapp const &) = delete;
@@ -79,6 +76,8 @@ private:
   void startup_subscribe_rc_requests();
   void shutdown_subscribe_deletes(void);
   void startup_get_policies(void );
+  void startup_registration_request();
+  void shutdown_deregistration_request();
 
 
   XappRmr * rmr_ref;

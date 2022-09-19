@@ -100,6 +100,9 @@ void XappSettings::loadDefaultSettings(){
 	if(theSettings[THREADS].empty()){
 		theSettings[THREADS] = DEFAULT_THREADS;
 	}
+	if(theSettings[CONFIG_FILE].empty()){
+		theSettings[CONFIG_FILE] = DEFAULT_CONFIG_FILE;
+	}
 
 }
 
@@ -124,6 +127,10 @@ void XappSettings::loadEnvVarSettings(){
 	if (const char *env_threads = std::getenv("THREADS")){
 		theSettings[THREADS].assign(env_threads);
 		mdclog_write(MDCLOG_INFO,"Threads set to %s from environment variable", theSettings[THREADS].c_str());
+	}
+	if (const char *env_config_file = std::getenv("CONFIG_FILE")){
+		theSettings[CONFIG_FILE].assign(env_config_file);
+		mdclog_write(MDCLOG_INFO,"Config file set to %s from environment variable", theSettings[CONFIG_FILE].c_str());
 	}
 
 }

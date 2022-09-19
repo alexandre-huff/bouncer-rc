@@ -19,20 +19,27 @@
 #include "xapp.hpp"
 #include <nlohmann/json.hpp>
 #include <iostream>
-#include<string>
+#include <string>
 #include <cpprest/http_client.h>
 #include <cpprest/filestream.h>
 #include <cpprest/uri.h>
 #include <cpprest/json.h>
+
+#include <cstdio>
+#include <rapidjson/filereadstream.h>
+
 using namespace utility;
 using namespace web;
 using namespace web::http;
 using namespace web::http::client;
 using namespace concurrency::streams;
 using jsonn = nlohmann::json;
+
 #define BUFFER_SIZE 1024
+
 extern std::vector<std::string>SubscriptionIds;
- Xapp::Xapp(XappSettings &config, XappRmr &rmr){
+
+Xapp::Xapp(XappSettings &config, XappRmr &rmr){
 
 	  rmr_ref = &rmr;
 	  config_ref = &config;
@@ -42,20 +49,11 @@ extern std::vector<std::string>SubscriptionIds;
   }
 
 Xapp::~Xapp(void){
-
-	//Joining the threads
-	int threadcnt = xapp_rcv_thread.size();
-		for(int i=0; i<threadcnt; i++){
-			if(xapp_rcv_thread[i].joinable())
-				xapp_rcv_thread[i].join();
-	}
-	xapp_rcv_thread.clear();
-
 	if(xapp_mutex!=NULL){
 		xapp_mutex->~mutex();
 		delete xapp_mutex;
 	}
-};
+}
 
 //Stop the xapp. Note- To be run only from unit test scripts.
 void Xapp::stop(void){
@@ -78,7 +76,7 @@ void Xapp::startup(SubscriptionHandler &sub_ref) {
 	subhandler_ref = &sub_ref;
 	set_rnib_gnblist();
 
-	sleep(5);
+	startup_registration_request();
 
 	//send subscriptions.
 	// startup_subscribe_kpm_requests();
@@ -86,20 +84,6 @@ void Xapp::startup(SubscriptionHandler &sub_ref) {
 
 	//read A1 policies
 	//startup_get_policies();
-	return;
-}
-void Xapp::Run(){
-	rmr_ref->set_listen(true);
-	if(xapp_mutex == NULL){
-		xapp_mutex = new std::mutex();
-	}
-	std::lock_guard<std::mutex> guard(*xapp_mutex);
-
-	for(int j=0; j < _callbacks.size(); j++){
-		std::thread th_recv([&](){ rmr_ref->xapp_rmr_receive(std::move(_callbacks[j]), rmr_ref);});
-		xapp_rcv_thread.push_back(std::move(th_recv));
-	}
-
 	return;
 }
 
@@ -124,11 +108,25 @@ void Xapp::start_xapp_receiver(XappMsgHandler& mp_handler, int threads){
 }
 
 void Xapp::shutdown(){
+	mdclog_write(MDCLOG_INFO, "Shutting down xapp %s", config_ref->operator[](XappSettings::SettingName::XAPP_ID).c_str());
 
-        sleep(10);
-        //send subscriptions delete.
-        shutdown_subscribe_deletes();
-        return;
+	//send subscriptions delete.
+	shutdown_subscribe_deletes();
+	// send deregistration request
+	shutdown_deregistration_request();
+
+	sleep(2);
+	rmr_ref->set_listen(false);
+
+	//Joining the threads
+	int threadcnt = xapp_rcv_thread.size();
+	for(int i=0; i<threadcnt; i++){
+		if(xapp_rcv_thread[i].joinable())
+			xapp_rcv_thread[i].join();
+	}
+	xapp_rcv_thread.clear();
+
+	return;
 }
 
 void Xapp::shutdown_subscribe_deletes(void )
@@ -424,7 +422,7 @@ void Xapp::startup_subscribe_rc_requests(){
 	char meid[RMR_MAX_MEID];
 	std::string xapp_id = config_ref->operator[](XappSettings::SettingName::XAPP_ID);
 	// int a =std::stoi(xapp_id);
-	mdclog_write(MDCLOG_INFO, "Preparing to send subscription in file= %s, line=%d", __FILE__, __LINE__);
+	mdclog_write(MDCLOG_INFO, "Preparing to send subscription in file=%s, line=%d", __FILE__, __LINE__);
 
 	auto gnblist = get_rnib_gnblist();
 
@@ -466,7 +464,7 @@ void Xapp::startup_subscribe_rc_requests(){
 							}
 						}
 					};
-				std::cout <<jsonObject.dump(4) << "\n";
+				std::cout << jsonObject.dump(4) << "\n";
 				utility::stringstream_t s;
 				s << jsonObject.dump().c_str();
 				web::json::value ret = json::value::parse(s);
@@ -584,3 +582,192 @@ void Xapp::set_rnib_gnblist(void) {
 
 }
 
+void Xapp::startup_registration_request() {
+	string version;
+	string config_str;
+	int rmr_port = 0;
+	int http_port = 0;
+	string rmr_addr;
+	string http_addr;
+
+	mdclog_write(MDCLOG_INFO, "Preparing registration request");
+
+	FILE *fp = fopen(config_ref->operator[](XappSettings::SettingName::CONFIG_FILE).c_str(), "r");
+	if (fp == NULL) {
+		mdclog_write(MDCLOG_ERR, "unable to open config file %s, reason = %s",
+					config_ref->operator[](XappSettings::SettingName::CONFIG_FILE).c_str(), strerror(errno));
+		return;
+	}
+	char buffer[4096];
+	FileReadStream is(fp, buffer, sizeof(buffer));
+	Document doc;
+	doc.ParseStream(is);
+
+	if (Value *value = Pointer("/version").Get(doc)) {
+		version = value->GetString();
+	} else {
+		mdclog_write(MDCLOG_WARN, "unable to get version from config file");
+	}
+	if (Value *value = Pointer("/messaging/ports").Get(doc)) {
+		auto array = value->GetArray();
+		for (auto &el : array) {
+			if (el.HasMember("name") && el.HasMember("port")) {
+				string name = el["name"].GetString();
+
+				if (name.compare("rmr-data") == 0) {
+					rmr_port = el["port"].GetInt();
+
+				} else if (name.compare("http") == 0) {
+					http_port = el["port"].GetInt();
+				}
+			}
+		}
+	} else {
+		mdclog_write(MDCLOG_WARN, "unable to get ports from config file");
+	}
+	if (char *env = getenv("RMR_SRC_ID")) {
+		rmr_addr = env;
+		rmr_addr.append(":" + to_string(rmr_port));
+	} else {
+		mdclog_write(MDCLOG_ERR, "RMR_SRC_ID env var is not defined");
+	}
+	if (http_port != 0) {
+		http_addr = rmr_addr;
+
+		// remove port from string
+		size_t pos = http_addr.find(":" + to_string(rmr_port));
+		if (pos != http_addr.npos) {
+			http_addr.erase(pos+1);	// keep ":"
+		}
+
+		pos = http_addr.find("-rmr.");
+		if (pos != http_addr.npos ) {
+			http_addr = http_addr.replace(http_addr.find("-rmr."), 5, "-http." );
+			http_addr.append(to_string(http_port));
+		}
+	}
+
+	StringBuffer outbuf;
+	outbuf.Clear();
+	Writer<StringBuffer> writer(outbuf);
+	doc.Accept(writer);
+	config_str = outbuf.GetString();
+
+	fclose(fp);
+
+	string xapp_name = config_ref->operator[](XappSettings::SettingName::XAPP_NAME);
+	string xapp_id = config_ref->operator[](XappSettings::SettingName::XAPP_ID);
+	string config_path = config_ref->operator[](XappSettings::SettingName::CONFIG_FILE);
+
+	pplx::create_task([xapp_name, version, config_path, xapp_id, http_addr, rmr_addr, config_str]()
+		{
+			jsonn jObj;
+			jObj = {
+				{"appName", xapp_name},
+				{"appVersion", version},
+				{"configPath", config_path},
+				{"appInstanceName", xapp_id},
+				{"httpEndpoint", http_addr},
+				{"rmrEndpoint", rmr_addr},
+				{"config", config_str}
+			};
+
+			if (mdclog_level_get() > MDCLOG_INFO) {
+				cout << "registration body is\n" << jObj.dump(4) << "\n";
+			}
+			utility::stringstream_t s;
+			s << jObj.dump().c_str();
+			web::json::value ret = json::value::parse(s);
+
+			utility::string_t port = U("8080");
+			utility::string_t address = U("http://service-ricplt-appmgr-http.ricplt.svc.cluster.local:");
+			address.append(port);
+			address.append(U("/ric/v1/register"));
+			uri_builder uri(address);
+			auto addr = uri.to_uri().to_string();
+			http_client client(addr);
+
+			mdclog_write(MDCLOG_INFO, "sending registration request at: %s", addr.c_str());
+
+			return client.request(methods::POST,U("/"),ret.serialize(),U("application/json"));
+		})
+
+		// Get the response.
+		.then([xapp_id](http_response response)
+		{
+			// Check the status code
+			if (response.status_code() == 201) {
+				mdclog_write(MDCLOG_INFO, "xapp %s has been registered", xapp_id.c_str());
+			} else {
+				mdclog_write(MDCLOG_ERR, "registration returned http status code %s - %s",
+							std::to_string(response.status_code()).c_str(), response.reason_phrase().c_str());
+			}
+		})
+
+		// catch any exception
+		.then([](pplx::task<void> previousTask)
+		{
+			try {
+				previousTask.wait();
+			} catch (exception& e) {
+				mdclog_write(MDCLOG_ERR, "xapp registration exception: %s", e.what());
+			}
+		});
+}
+
+void Xapp::shutdown_deregistration_request() {
+	mdclog_write(MDCLOG_INFO, "Preparing deregistration request");
+
+	string xapp_name = config_ref->operator[](XappSettings::SettingName::XAPP_NAME);
+	string xapp_id = config_ref->operator[](XappSettings::SettingName::XAPP_ID);
+
+	pplx::create_task([xapp_name, xapp_id]()
+		{
+			jsonn jObj;
+			jObj = {
+				{"appName", xapp_name},
+				{"appInstanceName", xapp_id}
+			};
+
+			if (mdclog_level_get() > MDCLOG_INFO) {
+				cout << "deregistration body is\n" << jObj.dump(4) << "\n";
+			}
+			utility::stringstream_t s;
+			s << jObj.dump().c_str();
+			web::json::value ret = json::value::parse(s);
+
+			utility::string_t port = U("8080");
+			utility::string_t address = U("http://service-ricplt-appmgr-http.ricplt.svc.cluster.local:");
+			address.append(port);
+			address.append(U("/ric/v1/deregister"));
+			uri_builder uri(address);
+			auto addr = uri.to_uri().to_string();
+			http_client client(addr);
+
+			mdclog_write(MDCLOG_INFO, "sending deregistration request at: %s", addr.c_str());
+
+			return client.request(methods::POST,U("/"),ret.serialize(),U("application/json"));
+		})
+
+		// Get the response.
+		.then([xapp_id](http_response response)
+		{
+			// Check the status code
+			if (response.status_code() == 204) {
+				mdclog_write(MDCLOG_INFO, "xapp %s has been deregistered", xapp_id.c_str());
+			} else {
+				mdclog_write(MDCLOG_ERR, "deregistration returned http status code %s - %s",
+							std::to_string(response.status_code()).c_str(), response.reason_phrase().c_str());
+			}
+		})
+
+		// catch any exception
+		.then([](pplx::task<void> previousTask)
+		{
+			try {
+				previousTask.wait();
+			} catch (exception& e) {
+				mdclog_write(MDCLOG_ERR, "deregistration exception: %s", e.what());
+			}
+		});
+}

@@ -83,7 +83,6 @@ private:
     bool _listen;
 	void* _xapp_rmr_ctx;
 	rmr_mbuf_t*		_xapp_send_buff;					// send buffer
-	rmr_mbuf_t*		_xapp_received_buff;					// received buffer
 
 
 public:
@@ -122,6 +121,7 @@ static inline long elapsed_microseconds(struct timespec ts_start, struct timespe
 // main workhorse thread which does the listen->process->respond loop
 template <class MsgHandler>
 void XappRmr::xapp_rmr_receive(MsgHandler&& msgproc, XappRmr *parent){
+	rmr_mbuf_t *mbuf = NULL;
 
 	bool* resend = new bool(false);
 	// Get the thread id
@@ -140,46 +140,43 @@ void XappRmr::xapp_rmr_receive(MsgHandler&& msgproc, XappRmr *parent){
 	void *rmr_context = parent->get_rmr_context();
 	assert(rmr_context != NULL);
 
-	// Get buffer specific to this thread
-	this->_xapp_received_buff = NULL;
-	this->_xapp_received_buff = rmr_alloc_msg(rmr_context, RMR_DEF_SIZE);
-	assert(this->_xapp_received_buff != NULL);
-
 	mdclog_write(MDCLOG_INFO, "Starting receiver thread %s",  thread_id.str().c_str());
 	io_file.open("/tmp/timestamp.txt", std::ios::in|std::ios::out|std::ios::app);
-        std::time_t sentMsg_time;
-        std::time_t recvMsg_time;
-        // struct timeval ts_recv;
-        // struct timeval ts_sent;
-		struct timespec ts_recv;
-        struct timespec ts_sent;
-        int num = 0;
+	std::time_t sentMsg_time;
+	std::time_t recvMsg_time;
+	// struct timeval ts_recv;
+	// struct timeval ts_sent;
+	struct timespec ts_recv;
+	struct timespec ts_sent;
+	int num = 0;
 
 	while(parent->get_listen()) {
 		mdclog_write(MDCLOG_DEBUG, "Listening at Thread: %s",  thread_id.str().c_str());
 
-		this->_xapp_received_buff = rmr_rcv_msg( rmr_context, this->_xapp_received_buff );
-		//this->_xapp_received_buff = rmr_call( rmr_context, this->_xapp_received_buff);
+		mbuf = rmr_torcv_msg( rmr_context, mbuf, 2000 ); // come up every 2 sec to check for get_listen()
+
+		if (mbuf == NULL || mbuf->state == RMR_ERR_TIMEOUT) {
+			continue;
+		}
 
 		if (io_file) {
-			clock_gettime(CLOCK_REALTIME, &ts_recv);
-			// gettimeofday(&ts_recv, NULL);
 			if (mdclog_level_get() > MDCLOG_INFO) {
-				io_file << "Received Msg with msgType: " << this->_xapp_received_buff->mtype << " at time: " <<  (ts_recv.tv_sec * 1000) + (ts_recv.tv_nsec/1000000) << std::endl;
+				clock_gettime(CLOCK_REALTIME, &ts_recv);
+				io_file << "Received Msg with msgType: " << mbuf->mtype << " at time: " <<  (ts_recv.tv_sec * 1000) + (ts_recv.tv_nsec/1000000) << std::endl;
 			}
 		}
 
-		if( this->_xapp_received_buff->mtype < 0 || this->_xapp_received_buff->state != RMR_OK ) {
-			mdclog_write(MDCLOG_ERR, "bad msg:  state=%d  errno=%d, file= %s, line=%d", this->_xapp_received_buff->state, errno, __FILE__,__LINE__ );
+		if( mbuf->mtype < 0 || mbuf->state != RMR_OK ) {
+			mdclog_write(MDCLOG_ERR, "bad msg:  state=%d  errno=%d, file= %s, line=%d", mbuf->state, errno, __FILE__,__LINE__ );
 			return;
 		}
 		else
 		{
-			mdclog_write(MDCLOG_INFO,"RMR Received Message of Type: %d",this->_xapp_received_buff->mtype);
-			mdclog_write(MDCLOG_DEBUG,"RMR Received Message: %s",(char*)this->_xapp_received_buff->payload);
+			mdclog_write(MDCLOG_INFO,"RMR Received Message of Type: %d",mbuf->mtype);
+			mdclog_write(MDCLOG_DEBUG,"RMR Received Message: %s",(char*)mbuf->payload);
 
 		    //in case message handler returns true, need to resend the message.
-			msgproc(this->_xapp_received_buff, resend);
+			msgproc(mbuf, resend);
 
 			//start of code to check decoding indication payload
 
@@ -187,45 +184,45 @@ void XappRmr::xapp_rmr_receive(MsgHandler&& msgproc, XappRmr *parent){
 			mdclog_write(MDCLOG_DEBUG, "Total Indications received : %d", num);
 
 			if(*resend){
-				mdclog_write(MDCLOG_INFO,"RMR Return to Sender Message of Type: %d",this->_xapp_received_buff->mtype);
-				mdclog_write(MDCLOG_DEBUG,"RMR Return to Sender Message: %s",(char*)this->_xapp_received_buff->payload);
+				mdclog_write(MDCLOG_INFO,"RMR Return to Sender Message of Type: %d",mbuf->mtype);
+				mdclog_write(MDCLOG_DEBUG,"RMR Return to Sender Message: %s",(char*)mbuf->payload);
 
 				if (io_file) {
-					clock_gettime(CLOCK_REALTIME, &ts_sent);
-					// gettimeofday(&ts_sent, NULL);
-
 					if (mdclog_level_get() > MDCLOG_INFO) {
-						io_file << "Send Msg with msgType: " << this->_xapp_received_buff->mtype << " at time: " << (ts_sent.tv_sec * 1000) + (ts_sent.tv_nsec/1000000) << std::endl;
+						clock_gettime(CLOCK_REALTIME, &ts_sent);
+						io_file << "Send Msg with msgType: " << mbuf->mtype << " at time: " << (ts_sent.tv_sec * 1000) + (ts_sent.tv_nsec/1000000) << std::endl;
 
 						// io_file << "Time diff: " << ((ts_sent.tv_sec - ts_recv.tv_sec)*1000 + (ts_sent.tv_usec - ts_recv.tv_usec)/1000) << std::endl;
 						io_file << "Time diff: " << elapsed_microseconds(ts_recv, ts_sent) << std::endl;
 					}
 				}
 
-				rmr_rts_msg(rmr_context, this->_xapp_received_buff );
+				rmr_rts_msg(rmr_context, mbuf );
 				//sleep(1);
 
 				*resend = false;
 			}
-			continue;
+
 		}
 
 	}
 
 	if (io_file) {
-                io_file.close();
-        }
+		io_file.close();
+	}
 
 	// Clean up
 	try{
 		delete resend;
-		rmr_free_msg(this->_xapp_received_buff);
+		rmr_free_msg(mbuf);
 	}
 	catch(std::runtime_error &e){
 		std::string identifier = __FILE__ +  std::string(", Line: ") + std::to_string(__LINE__) ;
 		std::string error_string = identifier = " Error freeing RMR message ";
 		mdclog_write(MDCLOG_ERR, error_string.c_str(), "");
 	}
+
+	mdclog_write(MDCLOG_INFO, "Cleaned up receiver thread %s",  thread_id.str().c_str());
 
 	return;
 }

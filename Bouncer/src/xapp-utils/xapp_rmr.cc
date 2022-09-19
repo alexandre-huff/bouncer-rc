@@ -27,7 +27,6 @@ XappRmr::XappRmr(std::string port, int rmrattempts){
 	_proto_port = port;
 	_nattempts = rmrattempts;
 	_xapp_rmr_ctx = NULL;
-	_xapp_received_buff = NULL;
 	_xapp_send_buff =NULL;
 	_rmr_is_ready = false;
 	_listen = false;
@@ -36,8 +35,6 @@ XappRmr::XappRmr(std::string port, int rmrattempts){
 
 XappRmr::~XappRmr(void){
 	// free memory
-	if(_xapp_received_buff)
-		rmr_free_msg(_xapp_received_buff);
 
 	if(_xapp_send_buff)
 		rmr_free_msg(_xapp_send_buff);
@@ -77,7 +74,7 @@ bool XappRmr::rmr_header(xapp_rmr_header *hdr){
 	_xapp_send_buff->sub_id = -1;
 	rmr_str2meid(_xapp_send_buff, hdr->meid);
 	rmr_str2xact(_xapp_send_buff, hdr->meid);
-            
+
 	mdclog_write(MDCLOG_INFO,"hdr->meid = %s",hdr->meid);
 
 	return true;
@@ -112,7 +109,7 @@ bool XappRmr::xapp_rmr_send(xapp_rmr_header *hdr, void *payload){
         char *xid = (char *) malloc( sizeof( char ) * RMR_MAX_SRC );
         memset(xid, '\0',RMR_MAX_SRC);
 	snprintf(xid, RMR_MAX_XID, "%010d", test_support_xact_count );
- 
+
 	mdclog_write(MDCLOG_INFO,"before xapp_send_buff Xid=%s, file= %s, line=%d",xid,__FILE__,__LINE__);
         memcpy(_xapp_send_buff->xaction, xid, RMR_MAX_XID);
 

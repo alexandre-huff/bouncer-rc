@@ -32,6 +32,7 @@
 #define DEFAULT_THREADS "1"
 
 #define DEFAULT_LOG_LEVEL	MDCLOG_WARN
+#define DEFAULT_CONFIG_FILE "/opt/ric/config/config-file.json"
 
 #define ASN_BUFF_MAX_SIZE		4096
 #define MAX_SUBSCRIPTION_ATTEMPTS	10
@@ -48,7 +49,8 @@ public:
 		  BOUNCER_PORT,
 		  MSG_MAX_BUFFER,
 		  THREADS,
-		  LOG_LEVEL
+		  LOG_LEVEL,
+		  CONFIG_FILE
 	}SettingName;
 
 	void loadDefaultSettings();

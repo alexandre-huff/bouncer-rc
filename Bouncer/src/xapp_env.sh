@@ -1,7 +1,7 @@
 #! /bin/bash
 
 export RMR_SEED_RT="../init/routes.txt"
-export RMR_RTG_SVC="9999"
+# export RMR_RTG_SVC="9999"
 export MSG_MAX_BUFFER="2072"
 export THREADS="1"
 export VERBOSE="0"

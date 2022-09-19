@@ -14,10 +14,10 @@
         "messaging": {
             "ports": [
                 {
-                        "name": "http",
-                        "container": "bouncer-xapp",
-                        "port": 8080,
-                        "description": "http service"
+                    "name": "http",
+                    "container": "bouncer-xapp",
+                    "port": 8080,
+                    "description": "http service"
                 },
                 {
                     "name": "rmr-data",

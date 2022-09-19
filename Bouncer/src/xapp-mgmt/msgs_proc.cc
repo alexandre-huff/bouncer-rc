@@ -252,7 +252,6 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 			if (mdclog_level_get() > MDCLOG_INFO)
 				asn_fprint(stdout, &asn_DEF_E2AP_PDU, e2pdu);
 
-			// TODO Huff: changes from here
 			ric_indication indication;
 			ric_indication_helper ind_helper;
 			string error_msg;
@@ -263,7 +262,7 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 			UEID_t *ueid = &indication_header->ric_indicationHeader_formats.choice.indicationHeader_Format2->ueID;
 
 			if (mdclog_level_get() > MDCLOG_INFO) {
-				fprintf(stderr, "E2SM_RC_IndicationHeader is below\n"); // FIXME this is not working as expected
+				fprintf(stderr, "E2SM_RC_IndicationHeader is below\n");
 				asn_fprint(stderr, &asn_DEF_E2SM_RC_IndicationHeader, indication_header);
 			}
 
