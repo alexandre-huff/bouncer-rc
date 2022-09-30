@@ -20,10 +20,10 @@
 #ifndef SUB_HELPER_
 #define SUB_HELPER_
 
-/* 
+/*
    Simple structure to store action related information based on E2 v0.22
    Used for subscription request, response etc
-   
+
    ricActionID					RICactionID,
    ricActionType		  		RICactionType,
    ricActionDefinition			RICactionDefinition 	OPTIONAL,
@@ -43,10 +43,10 @@
 struct Action {
 
 public:
-  
+
   Action(int id, int type): _is_def(false), _is_subs_act(false), _id(id), _type(type), _next_action(0){};
   Action(int id, int type, const void *def, size_t def_size, int next_action): _is_def(false), _is_subs_act(false), _id(id), _type(type){
-    
+
       _is_def = true;
       _action_definition.set_ref(def);
       _action_definition.set_size(def_size);
@@ -55,7 +55,7 @@ public:
 
   };
 
-  
+
   int get_id() const{
     return _id;
   }
@@ -72,7 +72,7 @@ public:
   int get_definition_size(void) const {
     return _action_definition.get_size();
   };
-  
+
 
   int get_subsequent_action() const {
     return _next_action;
@@ -86,7 +86,7 @@ public:
   bool is_subsequent_action() const{
     return _is_subs_act;
   }
-    
+
 private:
 
   bool _is_def;
@@ -99,7 +99,7 @@ private:
 
 
 /*
- Helper class that stores subscription data 
+ Helper class that stores subscription data
 */
 
 
@@ -117,13 +117,13 @@ public:
   void clear(void){
     _action_ref.get()->clear();
   }
-  
-  void set_request(int id){
+
+  void set_request(RICrequestID_t id){
     _req_id = id;
 
   };
 
-  void set_function_id(int id){
+  void set_function_id(RANfunctionID_t id){
     _func_id = id;
   };
 
@@ -132,7 +132,7 @@ public:
     _event_def.set_size(size);
    };
 
- 
+
   void add_action(int id, int type){
     Action a(id, type) ;
     _action_ref.get()->push_back(a);
@@ -144,15 +144,15 @@ public:
   };
 
 
-  int  get_request_id(void) const{
+  RICrequestID get_request_id(void) const{
     return _req_id;
   }
 
 
-  int  get_function_id(void) const{
+  RANfunctionID_t get_function_id(void) const{
     return _func_id;
   }
-  
+
   const void * get_event_def(void)  {
     return _event_def.get_ref();
   }
@@ -162,18 +162,20 @@ public:
   }
 
   void print_sub_info(void){
-    std::cout <<"Request ID = " << _req_id << std::endl;
-    std::cout <<"RAN Function ID = " << _func_id << std::endl;
+    std::cout << "RIC Requestor ID = " << _req_id.ricRequestorID << std::endl;
+    std::cout << "RIC Instance ID = " << _req_id.ricInstanceID << std::endl;
+    std::cout << "RAN Function ID = " << _func_id << std::endl;
     for(auto const & e: *(_action_ref.get())){
-      std::cout <<"Action ID = " << e.get_id() << " Action Type = " << e.get_type() << std::endl;
+      std::cout << "Action ID = " << e.get_id() << " Action Type = " << e.get_type() << std::endl;
     }
   };
-  
+
 private:
-  
+
   std::unique_ptr<action_t> _action_ref;
   int curr_index;
-  int _req_id, _func_id;
+  RICrequestID_t _req_id;
+  RANfunctionID_t _func_id;
   octet_helper _event_def;
 
 };

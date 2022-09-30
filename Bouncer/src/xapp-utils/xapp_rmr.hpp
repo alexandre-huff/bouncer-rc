@@ -82,7 +82,7 @@ private:
 	bool _rmr_is_ready;
     bool _listen;
 	void* _xapp_rmr_ctx;
-	rmr_mbuf_t*		_xapp_send_buff;					// send buffer
+	rmr_mbuf_t*		_xapp_send_buff;	// send buffer // FIXME Huff: move this line to the function to allow multi-threading
 
 
 public:
@@ -142,10 +142,7 @@ void XappRmr::xapp_rmr_receive(MsgHandler&& msgproc, XappRmr *parent){
 
 	mdclog_write(MDCLOG_INFO, "Starting receiver thread %s",  thread_id.str().c_str());
 	io_file.open("/tmp/timestamp.txt", std::ios::in|std::ios::out|std::ios::app);
-	std::time_t sentMsg_time;
-	std::time_t recvMsg_time;
-	// struct timeval ts_recv;
-	// struct timeval ts_sent;
+
 	struct timespec ts_recv;
 	struct timespec ts_sent;
 	int num = 0;

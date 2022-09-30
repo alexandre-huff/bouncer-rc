@@ -25,9 +25,6 @@
 #include <cpprest/uri.h>
 #include <cpprest/json.h>
 
-#include <cstdio>
-#include <rapidjson/filereadstream.h>
-
 using namespace utility;
 using namespace web;
 using namespace web::http;
@@ -36,8 +33,6 @@ using namespace concurrency::streams;
 using jsonn = nlohmann::json;
 
 #define BUFFER_SIZE 1024
-
-extern std::vector<std::string>SubscriptionIds;
 
 Xapp::Xapp(XappSettings &config, XappRmr &rmr){
 
@@ -129,78 +124,85 @@ void Xapp::shutdown(){
 	return;
 }
 
+inline void Xapp::subscribe_delete_request(string meid) {
+	auto subs = subscription_map.find(meid);
+
+	if (subs != subscription_map.end()) {
+
+		auto delJson = pplx::create_task([subs, this]() {
+			utility::string_t port = U("8088");
+			utility::string_t address = U("http://service-ricplt-submgr-http.ricplt.svc.cluster.local:");
+			address.append(port);
+			address.append(U("/ric/v1/subscriptions/"));
+			address.append( utility::string_t(subs->second));
+			uri_builder uri(address);
+			auto addr = uri.to_uri().to_string();
+			http_client client(addr);
+			ucout << utility::string_t(U("making requests at: ")) << addr <<std::endl;
+			return client.request(methods::DEL);
+		})
+
+		// Get the response.
+		.then([subs, this](http_response response) {
+			// Check the status code.
+			if (response.status_code() != 204) {
+				throw std::runtime_error("Returned " + std::to_string(response.status_code()));
+			}
+
+			// Convert the response body to JSON object.
+			std::wcout << "Deleted: " << std::boolalpha << (response.status_code() == 204) << std::endl;
+
+			subscription_map.erase(subs->first);	// TODO also remove it from gnblist
+		});
+
+		// serialize the user details.
+
+		try {
+			delJson.wait();
+		}
+		catch (const std::exception& e) {
+			printf("Error exception:%s\n", e.what());
+		}
+
+	}
+	else{
+		mdclog_write(MDCLOG_WARN,"Subscription delete cannot send in file=%s, line=%d for MEID %s as not subscribed",__FILE__,__LINE__, meid.c_str());
+	}
+}
+
 void Xapp::shutdown_subscribe_deletes(void )
 {
+	std::string xapp_id = config_ref->operator [](XappSettings::SettingName::XAPP_ID);
+	std::string gnb_id = config_ref->operator[](XappSettings::SettingName::G_NODE_B);
 
-	bool res;
-   	size_t data_size = ASN_BUFF_MAX_SIZE;
-   	unsigned char	data[data_size];
-   	//unsigned char meid[RMR_MAX_MEID];
-	char meid[RMR_MAX_MEID];
-   	std::string xapp_id = config_ref->operator [](XappSettings::SettingName::XAPP_ID);
+	mdclog_write(MDCLOG_INFO,"Preparing to send subscription Delete in file=%s, line=%d",__FILE__,__LINE__);
 
-   	mdclog_write(MDCLOG_INFO,"Preparing to send subscription Delete in file= %s, line=%d",__FILE__,__LINE__);
+	auto gnblist = get_rnib_gnblist();
 
-   	auto gnblist = get_rnib_gnblist();
+	size_t sz = gnblist.size();
+	mdclog_write(MDCLOG_INFO,"GNBList size : %lu", sz);
 
-   	int sz = gnblist.size();
-	 mdclog_write(MDCLOG_INFO,"GNBList size : %d", sz);
+	if(sz > 0) {
+		string gnb_id = config_ref->operator[](XappSettings::SettingName::G_NODE_B);
 
-   	if(sz <= 0)
+		if (gnb_id.empty()) {	// we iterate over all gNodeBs if not specified
+			for(size_t i = 0; i<sz; i++)
+			{
+				sleep(5);
+				mdclog_write(MDCLOG_INFO,"sending subscription delete request %lu out of %lu", i+1, sz);
+				mdclog_write(MDCLOG_INFO,"sending subscription delete to meid = %s", gnblist[i].c_str());
+
+				subscribe_delete_request(gnblist[i]);
+			}
+
+		} else {
+			sleep(5);
+			subscribe_delete_request(gnb_id);
+		}
+
+	} else {
 		mdclog_write(MDCLOG_INFO,"Subscriptions Delete cannot be sent as GNBList in RNIB is NULL");
-
-   	for(int i = 0; i<sz; i++)
-   	{
-	 	sleep(5);
-	 	//give the message to subscription handler, along with the transmitter.
-	 	strcpy((char*)meid,gnblist[i].c_str());
-		mdclog_write(MDCLOG_INFO,"sending %d subscription delete request out of : %d",i+1, sz);
-	     	mdclog_write(MDCLOG_INFO,"sending subscription delete to ,meid = %s", meid);
-
-		if (SubscriptionIds.size()>0)
-		{
-		auto delJson = pplx::create_task([i,meid]() {
-		utility::string_t port = U("8088");
-                utility::string_t address = U("http://service-ricplt-submgr-http.ricplt.svc.cluster.local:");
-                address.append(port);
-                address.append(U("/ric/v1/subscriptions/"));
-		address.append( utility::string_t(SubscriptionIds.back()));
-				SubscriptionIds.pop_back();
-                uri_builder uri(address);
-                auto addr = uri.to_uri().to_string();
-                http_client client(addr);
-                ucout << utility::string_t(U("making requests at: ")) << addr <<std::endl;
-                return client.request(methods::DEL);
-
-
-                        })
-
-                        // Get the response.
-                                .then([](http_response response) {
-                                // Check the status code.
-                                if (response.status_code() != 204) {
-                                        throw std::runtime_error("Returned " + std::to_string(response.status_code()));
-                                }
-
-                                // Convert the response body to JSON object.
-                                	std::wcout << "Deleted: " << std::boolalpha << (response.status_code() == 204) << std::endl;
-                                        });
-
-                                // serailize the user details.
-
-
-                                        try {
-                                                delJson.wait();
-                                        }
-                                        catch (const std::exception& e) {
-                                                printf("Error exception:%s\n", e.what());
-                                        }
-
-		}
-
-		else{
-		 mdclog_write(MDCLOG_ERR,"Subscription delete cannot send in file= %s, line=%d for MEID %s as no valid subIDS",__FILE__,__LINE__, meid);
-		}
+	}
 
 		/*
 
@@ -254,107 +256,107 @@ void Xapp::shutdown_subscribe_deletes(void )
 		 	mdclog_write(MDCLOG_ERR,"Subscription Delete FAILED in file= %s, line=%d for MEID %s",__FILE__,__LINE__, meid);
               	}
 		*/
-	}
 }
 
 void Xapp::startup_subscribe_kpm_requests(void ){
-   bool res;
-   size_t data_size = ASN_BUFF_MAX_SIZE;
-   unsigned char	data[data_size];
-   char meid[RMR_MAX_MEID];
-   std::string xapp_id = config_ref->operator [](XappSettings::SettingName::XAPP_ID);
-   //int a =std::stoi(xapp_id);
-   mdclog_write(MDCLOG_INFO,"Preparing to send subscription in file= %s, line=%d",__FILE__,__LINE__);
+	mdclog_write(MDCLOG_INFO,"Preparing to send subscription in file=%s, line=%d",__FILE__,__LINE__);
 
-   auto gnblist = get_rnib_gnblist();
+	auto gnblist = get_rnib_gnblist();
 
-   int sz = gnblist.size();
-	mdclog_write(MDCLOG_INFO,"GNBList size : %d", sz);
-   if(sz <= 0)
-	   mdclog_write(MDCLOG_INFO,"Subscriptions cannot be sent as GNBList in RNIB is NULL");
+	size_t sz = gnblist.size();
+	mdclog_write(MDCLOG_INFO,"GNBList size : %lu", sz);
+	if(sz <= 0)
+		mdclog_write(MDCLOG_INFO,"Subscriptions cannot be sent as GNBList in RNIB is NULL");
 
-   for(int i = 0; i<sz; i++)
-   {
-	 sleep(5);
-	 strcpy((char*)meid,gnblist[i].c_str());
-        mdclog_write(MDCLOG_INFO,"sending %d subscription request out of : %d",i+1, sz);
+	for(size_t i = 0; i<sz; i++)
+	{
+		sleep(5);
+		auto meid = gnblist[i];
 
-	 //mdclog_write(MDCLOG_INFO,"GNBList,gnblist[i] = %s and ith val = %d", gnblist[i], i);
-	 mdclog_write(MDCLOG_INFO,"sending subscription to ,meid = %s", meid);
+		mdclog_write(MDCLOG_INFO,"sending subscription request %lu out of %lu", i+1, sz);
+		mdclog_write(MDCLOG_INFO,"sending subscription to meid = %s", meid.c_str());
 
-auto postJson = pplx::create_task([meid,xapp_id]() {
+		auto postJson = pplx::create_task([meid, this]() {
 
+	        jsonn jsonObject;
+            jsonObject =
+				{
+					{"SubscriptionId",""},
+					{"ClientEndpoint",{
+						{"Host","service-ricxapp-bouncer-xapp-http.ricxapp"},
+						{"HTTPPort",8080},
+						{"RMRPort",4560}}
+					},
+					{"Meid",meid},
+					{"RANFunctionID",0},
+					{"SubscriptionDetails",
+						{
+							{
+								{"XappEventInstanceId",12345},
+								{"EventTriggers",{0}},
+								{"ActionToBeSetupList",
+									{
+										{
+											{"ActionID",1},
+											{"ActionType","report"},
+											{"ActionDefinition",{0}},
+											{"SubsequentAction",{
+												{"SubsequentActionType","continue"},
+												{"TimeToWait","zero"}}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
 
-                jsonn jsonObject;
-                 jsonObject =
-    {
+				};
 
+			std::cout <<jsonObject.dump(4) << "\n";
+			utility::stringstream_t s;
+			s << jsonObject.dump().c_str();
+			web::json::value ret = json::value::parse(s);
+			// std::wcout << ret.serialize().c_str() << std::endl;
+			utility::string_t port = U("8088");
+			utility::string_t address = U("http://service-ricplt-submgr-http.ricplt.svc.cluster.local:");
+			address.append(port);
+			address.append(U("/ric/v1/subscriptions"));
+			uri_builder uri(address);
+			auto addr = uri.to_uri().to_string();
+			http_client client(addr);
+			//std::cout<<uri::validate(addr)<<" validation \n";
+			ucout << utility::string_t(U("making requests at: ")) << addr << "\n";
+			return client.request(methods::POST,U("/"),ret.serialize(),U("application/json"));
+		})
 
+		// Get the response.
+		.then([meid, this](http_response response) {
+			// Check the status code.
+			if (response.status_code() != 201) {
+					throw std::runtime_error("Returned " + std::to_string(response.status_code()));
+			}
 
-        {"SubscriptionId",""},
-        {"ClientEndpoint",{{"Host","service-ricxapp-bouncer-xapp-http.ricxapp"},{"HTTPPort",8080},{"RMRPort",4560}}},
-        {"Meid",meid},
-        {"RANFunctionID",0},
-        {"SubscriptionDetails",
-                {
-                        {
-                            {"XappEventInstanceId",12345},{"EventTriggers",{0}},
-                            {"ActionToBeSetupList",
-                                    {
-                                        {
-                                                {"ActionID",1},{"ActionType","report"},{"ActionDefinition",{0}},{"SubsequentAction",{{"SubsequentActionType","continue"},{"TimeToWait","zero"}}}
-                                        }
-                                    }
-                            }
-                        }
-                }
-        }
+			// Convert the response body to JSON object.
+			return response.extract_json();
+		})
 
-    };
-                        std::cout <<jsonObject.dump(4) << "\n";
-                        utility::stringstream_t s;
-                        s << jsonObject.dump().c_str();
-                        web::json::value ret = json::value::parse(s);
-                       // std::wcout << ret.serialize().c_str() << std::endl;
-                utility::string_t port = U("8088");
-                 utility::string_t address = U("http://service-ricplt-submgr-http.ricplt.svc.cluster.local:");
-                  address.append(port);
-                  address.append(U("/ric/v1/subscriptions"));
-                uri_builder uri(address);
-                auto addr = uri.to_uri().to_string();
-                http_client client(addr);
-                //std::cout<<uri::validate(addr)<<" validation \n";
-                ucout << utility::string_t(U("making requests at: ")) << addr << "\n";
-                return client.request(methods::POST,U("/"),ret.serialize(),U("application/json"));
-                        })
+		// serialize the user details.
+		.then([meid, this](json::value jsonObject) {
+			std::cout<<"\nRecieved REST subscription response\n";
+			std::wcout << jsonObject.serialize().c_str() << "\n";
+			std::string tmp;
+			tmp=jsonObject[U("SubscriptionId")].as_string();
+			subscription_map.emplace(std::make_pair(meid, tmp));
 
-                        // Get the response.
-                                .then([](http_response response) {
-                                // Check the status code.
-                                if (response.status_code() != 201) {
-                                        throw std::runtime_error("Returned " + std::to_string(response.status_code()));
-                                }
+		});
 
-                                // Convert the response body to JSON object.
-                                return response.extract_json();
-                                        })
-
-                                // serailize the user details.
-                                                .then([](json::value jsonObject) {
-						std::cout<<"\nRecieved REST subscription response\n";
-                                                std::wcout << jsonObject.serialize().c_str() << "\n";
-						std::string tmp;
-						tmp=jsonObject[U("SubscriptionId")].as_string();
-						SubscriptionIds.push_back(tmp);
-
-                                                        });
-
-                                        try {
-                                                postJson.wait();
-                                        }
-                                        catch (const std::exception& e) {
-                                                printf("Error exception:%s\n", e.what());
-                                        }
+		try {
+				postJson.wait();
+		}
+		catch (const std::exception& e) {
+				printf("Error exception:%s\n", e.what());
+		}
 
 
 	/*
@@ -412,106 +414,131 @@ auto postJson = pplx::create_task([meid,xapp_id]() {
               }
 	    */
 	}
-   std::cout<<"\n SubscriptionIds vector size= "<<SubscriptionIds.size()<<"\n";
+   std::cout << "\nSubscription map size = " << subscription_map.size() << "\n";
 }
 
-void Xapp::startup_subscribe_rc_requests(){
-	bool res;
-	size_t data_size = ASN_BUFF_MAX_SIZE;
-	unsigned char data[data_size];
-	char meid[RMR_MAX_MEID];
-	std::string xapp_id = config_ref->operator[](XappSettings::SettingName::XAPP_ID);
-	// int a =std::stoi(xapp_id);
-	mdclog_write(MDCLOG_INFO, "Preparing to send subscription in file=%s, line=%d", __FILE__, __LINE__);
+inline void Xapp::subscribe_request(string meid) {
+	std::string http_addr = config_ref->operator[](XappSettings::SettingName::HTTP_SRC_ID);
+	std::string port = config_ref->operator[](XappSettings::SettingName::HTTP_PORT);
+	int http_port = stoi(port);
+	port = config_ref->operator[](XappSettings::SettingName::BOUNCER_PORT);
+	int rmr_port = stoi(port);
 
-	auto gnblist = get_rnib_gnblist();
+	mdclog_write(MDCLOG_INFO, "sending subscription to meid = %s", meid.c_str());
 
-	int sz = gnblist.size();
-	mdclog_write(MDCLOG_INFO, "GNBList size : %d", sz);
-	if (sz <= 0)
-		mdclog_write(MDCLOG_INFO, "Subscriptions cannot be sent as GNBList in RNIB is NULL");
-
-	for (int i = 0; i < sz; i++)
-	{
-		sleep(5);
-		strcpy((char *)meid, gnblist[i].c_str());
-		mdclog_write(MDCLOG_INFO, "sending %d subscription request out of : %d", i + 1, sz);
-
-		// mdclog_write(MDCLOG_INFO,"GNBList,gnblist[i] = %s and ith val = %d", gnblist[i], i);
-		mdclog_write(MDCLOG_INFO, "sending subscription to meid = %s", meid);
-
-		auto postJson = pplx::create_task([meid, xapp_id]()
+	auto postJson = pplx::create_task([meid, http_addr, http_port, rmr_port, this]() {
+		jsonn jsonObject;
+		jsonObject =
 			{
-				jsonn jsonObject;
-				jsonObject =
+				{"SubscriptionId",""},
+				{"ClientEndpoint",{{"Host",http_addr},{"HTTPPort",http_port},{"RMRPort",rmr_port}}},
+				{"Meid",meid},
+				{"RANFunctionID",1},
+				{"SubscriptionDetails",
 					{
-						{"SubscriptionId",""},
-						{"ClientEndpoint",{{"Host","service-ricxapp-bouncer-xapp-http.ricxapp"},{"HTTPPort",8080},{"RMRPort",4560}}},
-						{"Meid",meid},
-						{"RANFunctionID",1},
-						{"SubscriptionDetails",
-							{
+						{
+							{"XappEventInstanceId",12345},{"EventTriggers",{2}},
+							{"ActionToBeSetupList",
 								{
-									{"XappEventInstanceId",12345},{"EventTriggers",{2}},
-									{"ActionToBeSetupList",
-										{
+									{
+										{"ActionID",1},
+										{"ActionType","insert"},
+										{"ActionDefinition",{3}},
+										{"SubsequentAction",
 											{
-												{"ActionID",1},{"ActionType","insert"},{"ActionDefinition",{3}},{"SubsequentAction",{{"SubsequentActionType","continue"},{"TimeToWait","w10ms"}}}
+												{"SubsequentActionType","continue"},
+												{"TimeToWait","w10ms"}
 											}
 										}
 									}
 								}
 							}
 						}
-					};
-				std::cout << jsonObject.dump(4) << "\n";
-				utility::stringstream_t s;
-				s << jsonObject.dump().c_str();
-				web::json::value ret = json::value::parse(s);
-				// std::wcout << ret.serialize().c_str() << std::endl;
-				utility::string_t port = U("8088");
-				utility::string_t address = U("http://service-ricplt-submgr-http.ricplt.svc.cluster.local:");
-				address.append(port);
-				address.append(U("/ric/v1/subscriptions"));
-				uri_builder uri(address);
-				auto addr = uri.to_uri().to_string();
-				http_client client(addr);
-				//std::cout<<uri::validate(addr)<<" validation \n";
+					}
+				}
+			};
+		std::cout << jsonObject.dump(4) << "\n";
+		utility::stringstream_t s;
+		s << jsonObject.dump().c_str();
+		web::json::value ret = json::value::parse(s);
+		// std::wcout << ret.serialize().c_str() << std::endl;
+		utility::string_t port = U("8088");
+		utility::string_t address = U("http://service-ricplt-submgr-http.ricplt.svc.cluster.local:");
+		address.append(port);
+		address.append(U("/ric/v1/subscriptions"));
+		uri_builder uri(address);
+		auto addr = uri.to_uri().to_string();
+		http_client client(addr);
+		//std::cout<<uri::validate(addr)<<" validation \n";
 
-				ucout << utility::string_t(U("making requests at: ")) << addr << "\n";
+		ucout << utility::string_t(U("making requests at: ")) << addr << "\n";
 
-				return client.request(methods::POST,U("/"),ret.serialize(),U("application/json")); })
+		return client.request(methods::POST,U("/"),ret.serialize(),U("application/json"));
+	})
 
-					// Get the response.
-					.then([](http_response response)
-						{
-						// Check the status code.
-						if (response.status_code() != 201) {
-								throw std::runtime_error("Returned " + std::to_string(response.status_code()));
-						}
-
-						// Convert the response body to JSON object.
-						return response.extract_json(); })
-
-					// serialize the user details.
-					.then([](json::value jsonObject)
-						{
-							std::cout << "\nReceived REST subscription response\n";
-							std::wcout << jsonObject.serialize().c_str() << "\n";
-							std::string tmp;
-							tmp = jsonObject[U("SubscriptionId")].as_string();
-							SubscriptionIds.push_back(tmp); });
-
-		try
+	// Get the response.
+	.then([meid, this](http_response response)
 		{
-			postJson.wait();
+		// Check the status code.
+		if (response.status_code() != 201) {
+				throw std::runtime_error("Returned " + std::to_string(response.status_code()));
 		}
-		catch (const std::exception &e)
+
+		// Convert the response body to JSON object.
+		return response.extract_json();
+	})
+
+	// serialize the user details.
+	.then([meid, this](json::value jsonObject)
 		{
-			printf("Error exception:%s\n", e.what());
-		}
+			std::cout << "\nReceived REST subscription response\n";
+			std::wcout << jsonObject.serialize().c_str() << "\n";
+			std::string tmp;
+			tmp = jsonObject[U("SubscriptionId")].as_string();
+			subscription_map.emplace(std::make_pair(meid, tmp));
+	});
+
+	try
+	{
+		postJson.wait();
 	}
-	std::cout << "\nSubscriptionIds vector size= " << SubscriptionIds.size() << "\n\n";
+	catch (const std::exception &e)
+	{
+		mdclog_write(MDCLOG_ERR, "Error exception:%s\n", e.what());
+	}
+}
+
+void Xapp::startup_subscribe_rc_requests(){
+	mdclog_write(MDCLOG_INFO, "Preparing to send subscription in file=%s, line=%d", __FILE__, __LINE__);
+
+	auto gnblist = get_rnib_gnblist();
+
+	size_t sz = gnblist.size();
+	mdclog_write(MDCLOG_INFO, "GNBList size : %lu", sz);
+
+	if (sz > 0) {
+		string gnb_id = config_ref->operator[](XappSettings::SettingName::G_NODE_B);
+
+		if (gnb_id.empty()) {	// we iterate over all gNodeBs if not specified
+			for (size_t i = 0; i < sz; i++)
+			{
+				sleep(5);
+				mdclog_write(MDCLOG_INFO, "sending subscription request %lu out of %lu", i + 1, sz);
+
+				// mdclog_write(MDCLOG_INFO,"GNBList,gnblist[i] = %s and ith val = %d", gnblist[i], i);
+				subscribe_request(gnblist[i]);
+			}
+
+		} else {
+			sleep(5);	// FIXME wait for registration to complete
+			subscribe_request(gnb_id); // FIXME this should be called only after the xApp has been registered
+		}
+
+	} else {
+		mdclog_write(MDCLOG_INFO, "Subscriptions cannot be sent as GNBList in RNIB is NULL");
+	}
+
+	std::cout << "\nSubscription map size = " << subscription_map.size() << "\n\n";
 }
 
 void Xapp::startup_get_policies(void){
@@ -546,7 +573,7 @@ void Xapp::set_rnib_gnblist(void) {
 	    Document doc;
 	    ParseResult parseJson = doc.Parse<kParseStopWhenDoneFlag>((char*)result);
 	    if (!parseJson) {
-	    	std::cerr << "JSON parse error: %s (%u)", GetParseErrorFunc(parseJson.Code());
+			mdclog_write(MDCLOG_ERR, "JSON parse error: %s", (char *)GetParseErrorFunc(parseJson.Code()));
 	    	return;
 	    }
 
@@ -583,81 +610,23 @@ void Xapp::set_rnib_gnblist(void) {
 }
 
 void Xapp::startup_registration_request() {
-	string version;
-	string config_str;
-	int rmr_port = 0;
-	int http_port = 0;
-	string rmr_addr;
-	string http_addr;
-
 	mdclog_write(MDCLOG_INFO, "Preparing registration request");
-
-	FILE *fp = fopen(config_ref->operator[](XappSettings::SettingName::CONFIG_FILE).c_str(), "r");
-	if (fp == NULL) {
-		mdclog_write(MDCLOG_ERR, "unable to open config file %s, reason = %s",
-					config_ref->operator[](XappSettings::SettingName::CONFIG_FILE).c_str(), strerror(errno));
-		return;
-	}
-	char buffer[4096];
-	FileReadStream is(fp, buffer, sizeof(buffer));
-	Document doc;
-	doc.ParseStream(is);
-
-	if (Value *value = Pointer("/version").Get(doc)) {
-		version = value->GetString();
-	} else {
-		mdclog_write(MDCLOG_WARN, "unable to get version from config file");
-	}
-	if (Value *value = Pointer("/messaging/ports").Get(doc)) {
-		auto array = value->GetArray();
-		for (auto &el : array) {
-			if (el.HasMember("name") && el.HasMember("port")) {
-				string name = el["name"].GetString();
-
-				if (name.compare("rmr-data") == 0) {
-					rmr_port = el["port"].GetInt();
-
-				} else if (name.compare("http") == 0) {
-					http_port = el["port"].GetInt();
-				}
-			}
-		}
-	} else {
-		mdclog_write(MDCLOG_WARN, "unable to get ports from config file");
-	}
-	if (char *env = getenv("RMR_SRC_ID")) {
-		rmr_addr = env;
-		rmr_addr.append(":" + to_string(rmr_port));
-	} else {
-		mdclog_write(MDCLOG_ERR, "RMR_SRC_ID env var is not defined");
-	}
-	if (http_port != 0) {
-		http_addr = rmr_addr;
-
-		// remove port from string
-		size_t pos = http_addr.find(":" + to_string(rmr_port));
-		if (pos != http_addr.npos) {
-			http_addr.erase(pos+1);	// keep ":"
-		}
-
-		pos = http_addr.find("-rmr.");
-		if (pos != http_addr.npos ) {
-			http_addr = http_addr.replace(http_addr.find("-rmr."), 5, "-http." );
-			http_addr.append(to_string(http_port));
-		}
-	}
-
-	StringBuffer outbuf;
-	outbuf.Clear();
-	Writer<StringBuffer> writer(outbuf);
-	doc.Accept(writer);
-	config_str = outbuf.GetString();
-
-	fclose(fp);
 
 	string xapp_name = config_ref->operator[](XappSettings::SettingName::XAPP_NAME);
 	string xapp_id = config_ref->operator[](XappSettings::SettingName::XAPP_ID);
 	string config_path = config_ref->operator[](XappSettings::SettingName::CONFIG_FILE);
+	string config_str = config_ref->operator[](XappSettings::SettingName::CONFIG_STR);
+	string version = config_ref->operator[](XappSettings::SettingName::VERSION);
+	string rmr_addr = config_ref->operator[](XappSettings::SettingName::RMR_SRC_ID);
+	string http_addr = config_ref->operator[](XappSettings::SettingName::HTTP_SRC_ID);
+	string rmr_port = config_ref->operator[](XappSettings::SettingName::BOUNCER_PORT);
+	string http_port = config_ref->operator[](XappSettings::SettingName::HTTP_PORT);
+
+	rmr_addr.append(":" + rmr_port);
+
+	if (!http_addr.empty() && !http_port.empty()) {
+		http_addr.append(":" + http_port);
+	}
 
 	pplx::create_task([xapp_name, version, config_path, xapp_id, http_addr, rmr_addr, config_str]()
 		{
@@ -666,7 +635,7 @@ void Xapp::startup_registration_request() {
 				{"appName", xapp_name},
 				{"appVersion", version},
 				{"configPath", config_path},
-				{"appInstanceName", xapp_id},
+				{"appInstanceName", xapp_id},	// FIXME needs to figure out how xapp_id exactly works in the RIC
 				{"httpEndpoint", http_addr},
 				{"rmrEndpoint", rmr_addr},
 				{"config", config_str}

@@ -77,7 +77,7 @@ ric_control_request::~ric_control_request(void){
 }
 
 
-bool ric_control_request::encode_e2ap_control_request(unsigned char *buf, size_t *size, ric_control_helper & dinput){
+bool ric_control_request::encode_e2ap_control_request(unsigned char *buf, ssize_t *size, ric_control_helper & dinput){
 
   initMsg->procedureCode = ProcedureCode_id_RICcontrol;
   initMsg->criticality = Criticality_reject;

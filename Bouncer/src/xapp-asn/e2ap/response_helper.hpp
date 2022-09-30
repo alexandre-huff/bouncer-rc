@@ -71,8 +71,8 @@ public:
     _action_admitted_ref = std::make_unique<action_t>();
     _action_not_admitted_ref = std::make_unique<action_t>();
 
-    _req_id = he.get_request_id();
-    _req_seq_no = he.get_req_seq();
+    _requestor_id = he.get_requestor_id();
+    _instance_id = he.get_instance_id();
     _func_id = he.get_function_id();
 
     // Take care of the actions
@@ -91,8 +91,8 @@ public:
     _action_admitted_ref = std::make_unique<action_t>();
     _action_not_admitted_ref = std::make_unique<action_t>();
 
-    _req_id = he.get_request_id();
-    _req_seq_no = he.get_req_seq();
+    _requestor_id = he.get_requestor_id();
+    _instance_id = he.get_instance_id();
     _func_id = he.get_function_id();
 
 
@@ -110,9 +110,9 @@ public:
   action_t * get_admitted_list (void ) const {return _action_admitted_ref.get();};
   action_t * get_not_admitted_list (void ) const{return _action_not_admitted_ref.get();};
 
-  void set_request(int id, int seq_no){
-    _req_id = id;
-    _req_seq_no = seq_no;
+  void set_request(int requestor_id, int instance_id){
+    _requestor_id = requestor_id;
+    _instance_id = instance_id;
 
   };
 
@@ -137,12 +137,12 @@ public:
   };
 
 
-  int  get_request_id(void) const{
-    return _req_id;
+  int  get_requestor_id(void) const{
+    return _requestor_id;
   }
 
-  int get_req_seq(void) const{
-    return _req_seq_no;
+  int get_instance_id(void) const{
+    return _instance_id;
   }
 
   int  get_function_id(void) const{
@@ -151,8 +151,8 @@ public:
 
   std::string  to_string(void){
     std::string Info;
-    Info += "Request ID = " + std::to_string(_req_id) + "\n";
-    Info += "Request Sequence No = "  + std::to_string(_req_seq_no) + "\n";
+    Info += "Requestor ID = " + std::to_string(_requestor_id) + "\n";
+    Info += "Instance ID = "  + std::to_string(_instance_id) + "\n";
     Info += "RAN Function ID = " + std::to_string(_func_id) + "\n";
     Info += "Actions Admitted =\n";
     int i = 0;
@@ -171,7 +171,7 @@ public:
   }
 
 private:
-  int _req_id, _req_seq_no, _func_id;
+  int _requestor_id, _instance_id, _func_id;
   std::unique_ptr<action_t> _action_admitted_ref;
   std::unique_ptr<action_t> _action_not_admitted_ref;
 

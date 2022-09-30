@@ -26,7 +26,7 @@ using namespace web;
 using namespace web::http;
 using namespace web::http::experimental::listener;
 using namespace utility;
-std::vector<std::string>SubscriptionIds;
+
 #define TRACE(msg)            wcout << msg
 
 
@@ -133,6 +133,7 @@ int main(int argc, char *argv[]){
 	XappSettings config;
 	//change the priority depending upon application requirement
 	config.loadDefaultSettings();
+	config.loadXappDescriptorSettings();
 	config.loadEnvVarSettings();
 	config.loadCmdlineSettings(argc, argv);
 

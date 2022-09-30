@@ -44,8 +44,8 @@ public:
   bool set_fields(E2SM_Bouncer_EventTriggerDefinition_t *, e2sm_subscription_helper &);
   bool set_fields(E2SM_Bouncer_ActionDefinition_t *, e2sm_subscription_helper &);
 
-  bool encode_event_trigger(unsigned char *, size_t *, e2sm_subscription_helper &);
-  bool encode_action_defn(unsigned char*, size_t *, e2sm_subscription_helper &);
+  bool encode_event_trigger(unsigned char *, ssize_t *, e2sm_subscription_helper &);
+  bool encode_action_defn(unsigned char*, ssize_t *, e2sm_subscription_helper &);
 
 
   std::string  get_error (void) const {return error_string ;};

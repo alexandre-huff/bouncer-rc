@@ -59,13 +59,13 @@ subscription_delete_response::~subscription_delete_response(void){
   mdclog_write(MDCLOG_DEBUG, "Freeing subscription delete response memory");
   RICsubscriptionDeleteResponse_t * ric_subscription_delete_response = &(successMsg->value.choice.RICsubscriptionDeleteResponse);
 
-  for(unsigned int i = 0; i < ric_subscription_delete_response->protocolIEs.list.size ; i++){
+  for(int i = 0; i < ric_subscription_delete_response->protocolIEs.list.size ; i++){
     ric_subscription_delete_response->protocolIEs.list.array[i] = 0;
   }
 
 
   RICsubscriptionDeleteFailure_t * ric_subscription_failure = &(unsuccessMsg->value.choice.RICsubscriptionDeleteFailure);
-  for(unsigned int i = 0; i < ric_subscription_failure->protocolIEs.list.size; i++){
+  for(int i = 0; i < ric_subscription_failure->protocolIEs.list.size; i++){
     ric_subscription_failure->protocolIEs.list.array[i] = 0;
   }
 
@@ -85,7 +85,7 @@ subscription_delete_response::~subscription_delete_response(void){
 };
 
 
-bool subscription_delete_response::encode_e2ap_subscription_delete_response(unsigned char *buf, size_t *size,  subscription_response_helper &dinput, bool is_success){
+bool subscription_delete_response::encode_e2ap_subscription_delete_response(unsigned char *buf, ssize_t *size,  subscription_response_helper &dinput, bool is_success){
 
   bool res;
 
@@ -160,8 +160,8 @@ bool  subscription_delete_response::set_fields(SuccessfulOutcome_t *success, sub
   ies_ricreq->id = ProtocolIE_ID_id_RICrequestID;
   ies_ricreq->value.present = RICsubscriptionDeleteResponse_IEs__value_PR_RICrequestID;
   RICrequestID_t *ricrequest_ie = &ies_ricreq->value.choice.RICrequestID;
-  ricrequest_ie->ricRequestorID = helper.get_request_id();
-  //ricrequest_ie->ricRequestSequenceNumber = helper.get_req_seq();
+  ricrequest_ie->ricRequestorID = helper.get_requestor_id();
+  ricrequest_ie->ricInstanceID = helper.get_instance_id();
   ASN_SEQUENCE_ADD(&subscription_delete_response->protocolIEs, ies_ricreq);
 
 
@@ -193,19 +193,18 @@ bool subscription_delete_response:: get_fields(SuccessfulOutcome_t * success_msg
   for(int edx = 0; edx < success_msg->value.choice.RICsubscriptionDeleteResponse.protocolIEs.list.count; edx++) {
     RICsubscriptionDeleteResponse_IEs_t *memb_ptr = success_msg->value.choice.RICsubscriptionDeleteResponse.protocolIEs.list.array[edx];
 
-    switch(memb_ptr->id)
-      {
+    switch (memb_ptr->id)
+    {
       case (ProtocolIE_ID_id_RICrequestID):
-	requestid = &memb_ptr->value.choice.RICrequestID;
-	//dout.set_request(requestid->ricRequestorID, requestid->ricRequestSequenceNumber);
-	break;
+        requestid = &memb_ptr->value.choice.RICrequestID;
+        dout.set_request(requestid->ricRequestorID, requestid->ricInstanceID);
+        break;
 
       case (ProtocolIE_ID_id_RANfunctionID):
-	ranfunctionid = &memb_ptr->value.choice.RANfunctionID;
-	dout.set_function_id(*ranfunctionid);
-	break;
-      }
-
+        ranfunctionid = &memb_ptr->value.choice.RANfunctionID;
+        dout.set_function_id(*ranfunctionid);
+        break;
+    }
   }
 
   return true;
@@ -236,8 +235,8 @@ bool subscription_delete_response::set_fields(UnsuccessfulOutcome_t *unsuccess, 
   ies_ricreq->id = ProtocolIE_ID_id_RICrequestID;
   ies_ricreq->value.present = RICsubscriptionDeleteFailure_IEs__value_PR_RICrequestID;
   RICrequestID_t *ricrequest_ie = &ies_ricreq->value.choice.RICrequestID;
-  ricrequest_ie->ricRequestorID = helper.get_request_id();
-  //ricrequest_ie->ricRequestSequenceNumber = helper.get_req_seq();
+  ricrequest_ie->ricRequestorID = helper.get_requestor_id();
+  ricrequest_ie->ricInstanceID = helper.get_instance_id();
   ASN_SEQUENCE_ADD(&ric_subscription_failure->protocolIEs, ies_ricreq);
 
   ie_index = 1;
@@ -268,20 +267,18 @@ bool  subscription_delete_response:: get_fields(UnsuccessfulOutcome_t * unsucces
   for(int edx = 0; edx < unsuccess_msg->value.choice.RICsubscriptionDeleteFailure.protocolIEs.list.count; edx++) {
     RICsubscriptionDeleteFailure_IEs_t *memb_ptr = unsuccess_msg->value.choice.RICsubscriptionDeleteFailure.protocolIEs.list.array[edx];
 
-    switch(memb_ptr->id)
-      {
+    switch (memb_ptr->id)
+    {
       case (ProtocolIE_ID_id_RICrequestID):
-	requestid = &memb_ptr->value.choice.RICrequestID;
-	//dout.set_request(requestid->ricRequestorID, requestid->ricRequestSequenceNumber);
-	break;
+        requestid = &memb_ptr->value.choice.RICrequestID;
+        dout.set_request(requestid->ricRequestorID, requestid->ricInstanceID);
+        break;
 
       case (ProtocolIE_ID_id_RANfunctionID):
-	ranfunctionid = &memb_ptr->value.choice.RANfunctionID;
-	dout.set_function_id(*ranfunctionid);
-	break;
-
-      }
-
+        ranfunctionid = &memb_ptr->value.choice.RANfunctionID;
+        dout.set_function_id(*ranfunctionid);
+        break;
+    }
   }
 
   return true;

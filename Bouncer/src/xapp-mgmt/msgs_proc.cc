@@ -19,10 +19,10 @@
 #include "msgs_proc.hpp"
 
 
-bool XappMsgHandler::encode_subscription_delete_request(unsigned char* buffer, size_t *buf_len){
+bool XappMsgHandler::encode_subscription_delete_request(unsigned char* buffer, ssize_t *buf_len){
 
 	subscription_helper sub_helper;
-	sub_helper.set_request(0); // requirement of subscription manager ... ?
+	sub_helper.set_request({0, 0, 0}); // requirement of subscription manager ... ?
 	sub_helper.set_function_id(0);
 
 	subscription_delete e2ap_sub_req_del;
@@ -268,22 +268,22 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 
 
 			uint8_t ctrl_header_buf[8192] = {0, };
-			size_t ctrl_header_buf_size = 8192;
+			ssize_t ctrl_header_buf_size = 8192;
 
 			e2sm_control e2sm_control;
 			bool ret_head = e2sm_control.encode_rc_control_header(ctrl_header_buf, &ctrl_header_buf_size, ueid);
 			if (!ret_head) {
-				fprintf(stderr, "%s\n", e2sm_control.get_error().c_str());
+				mdclog_write(MDCLOG_ERR, "%s", e2sm_control.get_error().c_str());
 				*resend = false;
 				break;
 			}
 
 			uint8_t ctrl_msg_buf[8192] = {0, };
-			size_t ctrl_msg_buf_size = 8192;
+			ssize_t ctrl_msg_buf_size = 8192;
 
 			bool ret_msg = e2sm_control.encode_rc_control_message(ctrl_msg_buf, &ctrl_msg_buf_size);
 			if (!ret_msg) {
-				fprintf(stderr, "%s\n", e2sm_control.get_error().c_str());
+				mdclog_write(MDCLOG_ERR, "%s", e2sm_control.get_error().c_str());
 				*resend = false;
 				break;
 			}
@@ -307,7 +307,7 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 
 			// E2AP buffer
 			uint8_t e2ap_buf[8192] = {0, };
-			size_t e2ap_buf_size = 8192;
+			ssize_t e2ap_buf_size = 8192;
 
 			ric_control_request control_req;
 			bool encoded = control_req.encode_e2ap_control_request(e2ap_buf, &e2ap_buf_size, helper);
@@ -315,18 +315,24 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 				message->mtype = RIC_CONTROL_REQ; // if we're here we are running and all is ok
 				message->sub_id = -1;
 
-				if (e2ap_buf_size <= rmr_payload_size(message)) {
+				int rmr_len = rmr_payload_size(message);
+				if (rmr_len < 0) {
+					mdclog_write(MDCLOG_ERR, "unable to get the rmr payload size for control request. Reason = %s", strerror(errno));
+					*resend = false;
+					break;
+				}
+
+				if (e2ap_buf_size <= (ssize_t)rmr_len) {	// avoid compiler comparison complains
 					memcpy(message->payload, e2ap_buf, e2ap_buf_size);
 					message->len = e2ap_buf_size;
 					*resend = true;
 
 				} else {
-					fprintf(stderr, "ERROR %s:%d - E2AP Control Request encoded size %lu exceeds rmr payload size %d\n",
-							__FILE__, __LINE__, e2ap_buf_size, rmr_payload_size(message));
+					mdclog_write(MDCLOG_ERR, "E2AP Control Request encoded size %lu exceeds rmr payload size %d", e2ap_buf_size, rmr_len);
 					*resend = false;
 				}
 			} else {
-				fprintf(stderr, "E2AP Control Request encoding error. Reason = %s\n", control_req.get_error().c_str());
+				mdclog_write(MDCLOG_ERR, "E2AP Control Request encoding error. Reason = %s", control_req.get_error().c_str());
 				*resend = false;
 			}
 

@@ -44,8 +44,8 @@ public:
   bool get_fields(E2SM_Bouncer_IndicationHeader_t *, e2sm_indication_helper &);
   bool get_fields(E2SM_Bouncer_IndicationMessage_t *, e2sm_indication_helper &);
 
-  bool encode_indication_header(unsigned char *, size_t *, e2sm_indication_helper &);
-  bool encode_indication_message(unsigned char*, size_t *, e2sm_indication_helper &);
+  bool encode_indication_header(unsigned char *, ssize_t *, e2sm_indication_helper &);
+  bool encode_indication_message(unsigned char*, ssize_t *, e2sm_indication_helper &);
 
 
   std::string  get_error (void) const {return error_string ;};

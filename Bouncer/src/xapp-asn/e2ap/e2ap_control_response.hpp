@@ -49,7 +49,7 @@ public:
   ric_control_response(void);
   ~ric_control_response(void);
 
-  bool encode_e2ap_control_response(unsigned char *, size_t *,  ric_control_helper &, bool);
+  bool encode_e2ap_control_response(unsigned char *, ssize_t *,  ric_control_helper &, bool);
 
 
   bool set_fields(SuccessfulOutcome_t *, ric_control_helper &);

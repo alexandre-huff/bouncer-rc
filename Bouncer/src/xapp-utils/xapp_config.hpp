@@ -27,7 +27,8 @@
 #include <mdclog/mdclog.h>
 
 #define DEFAULT_XAPP_NAME "bouncer-xapp"
-#define DEFAULT_PORT "4560"
+#define DEFAULT_RMR_PORT "4560"
+#define DEFAULT_HTTP_PORT "8080"
 #define DEFAULT_MSG_MAX_BUFFER "2072"
 #define DEFAULT_THREADS "1"
 
@@ -46,21 +47,31 @@ public:
 	typedef enum{
 		  XAPP_ID,
 		  XAPP_NAME,
+		  VERSION,
 		  BOUNCER_PORT,
 		  MSG_MAX_BUFFER,
 		  THREADS,
 		  LOG_LEVEL,
-		  CONFIG_FILE
+		  CONFIG_FILE,
+		  CONFIG_STR,
+		  HTTP_PORT,
+		  RMR_SRC_ID,
+		  HTTP_SRC_ID,
+		  G_NODE_B
 	}SettingName;
 
 	void loadDefaultSettings();
 	void loadCmdlineSettings(int, char **);
 	void loadEnvVarSettings();
+	void loadXappDescriptorSettings();
 	void usage(char*);
 	string& operator[](const SettingName& theName);
 private:
 	typedef map<SettingName, std::string> SettingCollection;
 	SettingCollection theSettings;
+
+	string buildHttpAddress();
+	string buildGlobalGNodeBId(uint8_t *plmn_id, uint32_t gnb_id);
 
 };
 

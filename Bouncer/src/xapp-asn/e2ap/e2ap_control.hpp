@@ -46,7 +46,7 @@ public:
   ric_control_request(void);
   ~ric_control_request(void);
 
-  bool encode_e2ap_control_request(unsigned char *, size_t *,  ric_control_helper &);
+  bool encode_e2ap_control_request(unsigned char *, ssize_t *,  ric_control_helper &);
   InitiatingMessage_t * get_message (void) ;
   bool set_fields(InitiatingMessage_t *, ric_control_helper &);
   bool get_fields(InitiatingMessage_t *, ric_control_helper &);

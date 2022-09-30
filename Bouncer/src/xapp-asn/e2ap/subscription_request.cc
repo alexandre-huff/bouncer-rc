@@ -109,7 +109,7 @@ subscription_request::~subscription_request(void){
 };
 
 
-bool subscription_request::encode_e2ap_subscription(unsigned char *buf, size_t *size,  subscription_helper &dinput){
+bool subscription_request::encode_e2ap_subscription(unsigned char *buf, ssize_t *size,  subscription_helper &dinput){
 
   bool res;
 
@@ -174,9 +174,8 @@ bool subscription_request::set_fields( InitiatingMessage_t * init_msg, subscript
   ies_ricreq->id = ProtocolIE_ID_id_RICrequestID;
   ies_ricreq->value.present = RICsubscriptionRequest_IEs__value_PR_RICrequestID;
   RICrequestID_t *ricrequest_ie = &ies_ricreq->value.choice.RICrequestID;
-  ricrequest_ie->ricRequestorID = helper.get_request_id();
-  mdclog_write(MDCLOG_INFO,"instance id for subsreq  = %ld", ricrequest_ie->ricInstanceID);
-  //ricrequest_ie->ricRequestSequenceNumber = helper.get_req_seq();
+  ricrequest_ie->ricRequestorID = helper.get_request_id().ricRequestorID;
+  ricrequest_ie->ricInstanceID = helper.get_request_id().ricInstanceID;
   result = ASN_SEQUENCE_ADD(&(ric_subscription->protocolIEs), &IE_array[ie_index]);
   assert(result == 0);
 
@@ -261,42 +260,41 @@ bool subscription_request:: get_fields(InitiatingMessage_t * init_msg,  subscrip
     return false;
   }
 
-  RICrequestID_t *requestid;
-  RANfunctionID_t * ranfunctionid;
   RICsubscriptionDetails_t * ricsubscription;
 
-  for(int edx = 0; edx < init_msg->value.choice.RICsubscriptionRequest.protocolIEs.list.count; edx++) {
+  for (int edx = 0; edx < init_msg->value.choice.RICsubscriptionRequest.protocolIEs.list.count; edx++)
+  {
     RICsubscriptionRequest_IEs_t *memb_ptr = init_msg->value.choice.RICsubscriptionRequest.protocolIEs.list.array[edx];
 
-    switch(memb_ptr->id)
-      {
+    switch (memb_ptr->id)
+    {
       case (ProtocolIE_ID_id_RICrequestID):
-	requestid = &memb_ptr->value.choice.RICrequestID;
-	//dout.set_request(requestid->ricRequestorID, requestid->ricRequestSequenceNumber);
-	break;
+        dout.set_request(memb_ptr->value.choice.RICrequestID);
+        break;
 
       case (ProtocolIE_ID_id_RANfunctionID):
-	ranfunctionid = &memb_ptr->value.choice.RANfunctionID;
-	dout.set_function_id(*ranfunctionid);
-	break;
+        dout.set_function_id(memb_ptr->value.choice.RANfunctionID);
+        break;
 
       case (ProtocolIE_ID_id_RICsubscriptionDetails):
-	ricsubscription = &memb_ptr->value.choice.RICsubscriptionDetails;
-	dout.set_event_def(ricsubscription->ricEventTriggerDefinition.buf, ricsubscription->ricEventTriggerDefinition.size);
+        ricsubscription = &memb_ptr->value.choice.RICsubscriptionDetails;
+        dout.set_event_def(ricsubscription->ricEventTriggerDefinition.buf, ricsubscription->ricEventTriggerDefinition.size);
 
-	for(int index = 0; index < ricsubscription->ricAction_ToBeSetup_List.list.count; index ++){
-	  RICaction_ToBeSetup_ItemIEs_t * item = (RICaction_ToBeSetup_ItemIEs_t *)ricsubscription->ricAction_ToBeSetup_List.list.array[index];
-	  if (item->value.choice.RICaction_ToBeSetup_Item.ricSubsequentAction == NULL){
-	    dout.add_action(item->value.choice.RICaction_ToBeSetup_Item.ricActionID, item->value.choice.RICaction_ToBeSetup_Item.ricActionType);
-	  }
-	  else{
-	    std::string action_def = ""; // for now we are ignoring action definition
-	  }
-	};
+        for (int index = 0; index < ricsubscription->ricAction_ToBeSetup_List.list.count; index++)
+        {
+          RICaction_ToBeSetup_ItemIEs_t *item = (RICaction_ToBeSetup_ItemIEs_t *)ricsubscription->ricAction_ToBeSetup_List.list.array[index];
+          if (item->value.choice.RICaction_ToBeSetup_Item.ricSubsequentAction == NULL)
+          {
+            dout.add_action(item->value.choice.RICaction_ToBeSetup_Item.ricActionID, item->value.choice.RICaction_ToBeSetup_Item.ricActionType);
+          }
+          else
+          {
+            std::string action_def = ""; // for now we are ignoring action definition
+          }
+        };
 
-	break;
-      }
-
+        break;
+    }
   }
 
   //asn_fprint(stdout, &asn_DEF_E2AP_PDU, e2pdu);

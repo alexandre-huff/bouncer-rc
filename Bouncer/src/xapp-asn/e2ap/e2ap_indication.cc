@@ -75,7 +75,7 @@ ric_indication::~ric_indication(void){
 }
 
 
-bool ric_indication::encode_e2ap_indication(unsigned char *buf, size_t *size, ric_indication_helper & dinput){
+bool ric_indication::encode_e2ap_indication(unsigned char *buf, ssize_t *size, ric_indication_helper & dinput){
 
   initMsg->procedureCode = ProcedureCode_id_RICindication;
   initMsg->criticality = Criticality_ignore;

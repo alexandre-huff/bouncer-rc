@@ -54,7 +54,7 @@
 
 };
 
-bool e2sm_indication::encode_indication_header(unsigned char *buf, size_t *size, e2sm_indication_helper &helper){
+bool e2sm_indication::encode_indication_header(unsigned char *buf, ssize_t *size, e2sm_indication_helper &helper){
 
   ASN_STRUCT_RESET(asn_DEF_E2SM_Bouncer_IndicationHeader, indication_head);
 
@@ -94,7 +94,7 @@ bool e2sm_indication::encode_indication_header(unsigned char *buf, size_t *size,
   return true;
 }
 
-bool e2sm_indication::encode_indication_message(unsigned char *buf, size_t *size, e2sm_indication_helper &helper){
+bool e2sm_indication::encode_indication_message(unsigned char *buf, ssize_t *size, e2sm_indication_helper &helper){
 
   bool res;
   res = set_fields(indication_msg, helper);

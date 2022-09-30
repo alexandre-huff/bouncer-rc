@@ -46,7 +46,7 @@ public:
   subscription_request(void);
   ~subscription_request(void);
 
-  bool encode_e2ap_subscription(unsigned char *, size_t *,  subscription_helper &);
+  bool encode_e2ap_subscription(unsigned char *, ssize_t *,  subscription_helper &);
   bool set_fields(InitiatingMessage_t *, subscription_helper &);
   bool get_fields(InitiatingMessage_t *, subscription_helper &);
 

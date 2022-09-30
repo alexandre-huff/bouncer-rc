@@ -153,7 +153,7 @@ subscription_response::~subscription_response(void){
 
 };
 
-bool subscription_response::encode_e2ap_subscription_response_success(unsigned char *buf, size_t *size, subscription_response_helper &dinput) {
+bool subscription_response::encode_e2ap_subscription_response_success(unsigned char *buf, ssize_t *size, subscription_response_helper &dinput) {
   set_fields_success(dinput);
   e2ap_pdu_obj->present =  E2AP_PDU_PR_successfulOutcome;
   e2ap_pdu_obj->choice.successfulOutcome = successMsg;
@@ -165,7 +165,7 @@ bool subscription_response::encode_e2ap_subscription_response_success(unsigned c
   return encode_e2ap_subscription_response(buf, size);
 }
 
-bool subscription_response::encode_e2ap_subscription_response_unsuccess(unsigned char *buf, size_t *size, subscription_response_failure_helper &dinput) {
+bool subscription_response::encode_e2ap_subscription_response_unsuccess(unsigned char *buf, ssize_t *size, subscription_response_failure_helper &dinput) {
   set_fields_unsuccess(dinput);
   e2ap_pdu_obj->present = E2AP_PDU_PR_unsuccessfulOutcome;
   e2ap_pdu_obj->choice.unsuccessfulOutcome = unsuccessMsg;
@@ -181,7 +181,7 @@ bool subscription_response::encode_e2ap_subscription_response_unsuccess(unsigned
   This is a generic function that can be used for both success and unsuccess subscription responses
   Should not be called outside this module
 */
-bool subscription_response::encode_e2ap_subscription_response(unsigned char *buf, size_t *size) {
+bool subscription_response::encode_e2ap_subscription_response(unsigned char *buf, ssize_t *size) {
 
   int ret_constr = asn_check_constraints(&asn_DEF_E2AP_PDU, (void *) e2ap_pdu_obj, errbuf, &errbuf_len);
   if(ret_constr){
@@ -224,8 +224,8 @@ void subscription_response::set_fields_success(subscription_response_helper &hel
   ies_ricreq->id = ProtocolIE_ID_id_RICrequestID;
   ies_ricreq->value.present = RICsubscriptionResponse_IEs__value_PR_RICrequestID;
   RICrequestID_t *ricrequest_ie = &ies_ricreq->value.choice.RICrequestID;
-  ricrequest_ie->ricRequestorID = helper.get_request_id();
- // ricrequest_ie->ricRequestSequenceNumber = helper.get_req_seq();
+  ricrequest_ie->ricRequestorID = helper.get_requestor_id();
+ ricrequest_ie->ricInstanceID = helper.get_instance_id();
   ASN_SEQUENCE_ADD(&subscription_response->protocolIEs, &(IE_array[ie_index]));
 
 
@@ -356,7 +356,7 @@ void subscription_response:: get_fields(SuccessfulOutcome_t * success_msg,  subs
     {
       case (ProtocolIE_ID_id_RICrequestID):
         requestid = &memb_ptr->value.choice.RICrequestID;
-        // dout.set_request(requestid->ricRequestorID, requestid->ricRequestSequenceNumber);
+        dout.set_request(requestid->ricRequestorID, requestid->ricInstanceID);
         break;
 
       case (ProtocolIE_ID_id_RANfunctionID):
@@ -477,9 +477,6 @@ void subscription_response:: get_fields(UnsuccessfulOutcome_t * unsuccess_msg,  
 {
 
   assert(unsuccess_msg != NULL);
-
-  RICrequestID_t *requestid;
-  RANfunctionID_t * ranfunctionid;
 
   for (int edx = 0; edx < unsuccess_msg->value.choice.RICsubscriptionFailure.protocolIEs.list.count; edx++)
   {

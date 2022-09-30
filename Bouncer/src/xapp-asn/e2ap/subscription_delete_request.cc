@@ -71,7 +71,7 @@ subscription_delete::~subscription_delete(void){
 };
 
 
-bool subscription_delete::encode_e2ap_subscription(unsigned char *buf, size_t *size,  subscription_helper &dinput){
+bool subscription_delete::encode_e2ap_subscription(unsigned char *buf, ssize_t *size,  subscription_helper &dinput){
 
   e2ap_pdu_obj->choice.initiatingMessage = initMsg;
   e2ap_pdu_obj->present = E2AP_PDU_PR_initiatingMessage;
@@ -123,25 +123,21 @@ bool subscription_delete::set_fields( subscription_helper &helper )
  	ies_ricreq->id = ProtocolIE_ID_id_RICrequestID;
  	ies_ricreq->value.present = RICsubscriptionDeleteRequest_IEs__value_PR_RICrequestID;
  	RICrequestID_t *ricrequest_ie = &ies_ricreq->value.choice.RICrequestID;
- 	ricrequest_ie->ricRequestorID = helper.get_request_id();
+  ricrequest_ie->ricRequestorID = helper.get_request_id().ricRequestorID;
  	update_instance++;//incrementing ricInstanceID by one, each time the bouncer send delete req
  	ricrequest_ie->ricInstanceID = update_instance;
  	mdclog_write(MDCLOG_INFO,"instance id for subsdelreq  = %ld", update_instance);
- 	//ricrequest_ie->ricRequestSequenceNumber = helper.get_req_seq();
 
+  ie_index = 1;
+  RICsubscriptionDeleteRequest_IEs_t *ies_ranfunc = &IE_array[ie_index];
+  ies_ranfunc->criticality = Criticality_reject;
+  ies_ranfunc->id = ProtocolIE_ID_id_RANfunctionID;
+  ies_ranfunc->value.present = RICsubscriptionDeleteRequest_IEs__value_PR_RANfunctionID;
+  RANfunctionID_t *ranfunction_ie = &ies_ranfunc->value.choice.RANfunctionID;
+  *ranfunction_ie = helper.get_function_id();
+  mdclog_write(MDCLOG_INFO,"ran function id for subsdelreq = %ld", helper.get_function_id());
 
-
-  	ie_index = 1;
-  	RICsubscriptionDeleteRequest_IEs_t *ies_ranfunc = &IE_array[ie_index];
-  	ies_ranfunc->criticality = Criticality_reject;
-  	ies_ranfunc->id = ProtocolIE_ID_id_RANfunctionID;
-  	ies_ranfunc->value.present = RICsubscriptionDeleteRequest_IEs__value_PR_RANfunctionID;
-  	RANfunctionID_t *ranfunction_ie = &ies_ranfunc->value.choice.RANfunctionID;
-  	*ranfunction_ie = helper.get_function_id();
-  	mdclog_write(MDCLOG_INFO,"ran function  id for subsdelreq  = %d", helper.get_function_id());
-  	//*ranfunction_ie =1;
-
-  	return true;
+  return true;
 };
 
 
@@ -155,22 +151,17 @@ bool  subscription_delete:: get_fields(InitiatingMessage_t * init_msg,  subscrip
     return false;
   }
 
-  RICrequestID_t *requestid;
-  RANfunctionID_t * ranfunctionid;
-
   for(int edx = 0; edx < init_msg->value.choice.RICsubscriptionDeleteRequest.protocolIEs.list.count; edx++) {
     RICsubscriptionDeleteRequest_IEs_t *memb_ptr = init_msg->value.choice.RICsubscriptionDeleteRequest.protocolIEs.list.array[edx];
 
     switch (memb_ptr->id)
     {
       case (ProtocolIE_ID_id_RICrequestID):
-        requestid = &memb_ptr->value.choice.RICrequestID;
-        // dout.set_request(requestid->ricRequestorID, requestid->ricRequestSequenceNumber);
+        dout.set_request(memb_ptr->value.choice.RICrequestID);
         break;
 
       case (ProtocolIE_ID_id_RANfunctionID):
-        ranfunctionid = &memb_ptr->value.choice.RANfunctionID;
-        dout.set_function_id(*ranfunctionid);
+        dout.set_function_id(memb_ptr->value.choice.RANfunctionID);
         break;
     }
 

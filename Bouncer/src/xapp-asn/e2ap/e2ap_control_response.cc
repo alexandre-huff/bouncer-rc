@@ -114,7 +114,7 @@ ric_control_response::~ric_control_response(void){
 }
 
 
-bool ric_control_response::encode_e2ap_control_response(unsigned char *buf, size_t *size, ric_control_helper & dinput, bool is_success){
+bool ric_control_response::encode_e2ap_control_response(unsigned char *buf, ssize_t *size, ric_control_helper & dinput, bool is_success){
 
 	bool res;
 	if (is_success){

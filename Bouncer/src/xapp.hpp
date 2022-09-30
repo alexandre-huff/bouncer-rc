@@ -78,6 +78,8 @@ private:
   void startup_get_policies(void );
   void startup_registration_request();
   void shutdown_deregistration_request();
+  inline void subscribe_request(string);
+  inline void subscribe_delete_request(string);
 
 
   XappRmr * rmr_ref;
@@ -88,6 +90,7 @@ private:
   std::vector<std::thread> xapp_rcv_thread;
   std::vector<std::string> rnib_gnblist;
   std::vector<XappMsgHandler> _callbacks;
+  std::unordered_map<std::string, std::string> subscription_map;
 };
 
 

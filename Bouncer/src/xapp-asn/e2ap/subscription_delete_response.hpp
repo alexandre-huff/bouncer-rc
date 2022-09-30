@@ -45,7 +45,7 @@ public:
   subscription_delete_response(void);
   ~subscription_delete_response(void);
 
-  bool encode_e2ap_subscription_delete_response(unsigned char *, size_t *,  subscription_response_helper &, bool);
+  bool encode_e2ap_subscription_delete_response(unsigned char *, ssize_t *,  subscription_response_helper &, bool);
   bool set_fields(SuccessfulOutcome_t *, subscription_response_helper &);
   bool get_fields(SuccessfulOutcome_t *, subscription_response_helper &);
 

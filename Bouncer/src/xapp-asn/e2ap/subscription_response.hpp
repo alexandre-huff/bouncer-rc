@@ -44,8 +44,8 @@ public:
   subscription_response(void);
   ~subscription_response(void);
 
-  bool encode_e2ap_subscription_response_success(unsigned char *, size_t *, subscription_response_helper &);
-  bool encode_e2ap_subscription_response_unsuccess(unsigned char *, size_t *, subscription_response_failure_helper &);
+  bool encode_e2ap_subscription_response_success(unsigned char *, ssize_t *, subscription_response_helper &);
+  bool encode_e2ap_subscription_response_unsuccess(unsigned char *, ssize_t *, subscription_response_failure_helper &);
   void get_fields(SuccessfulOutcome_t *, subscription_response_helper &);
   void get_fields(UnsuccessfulOutcome_t *,  subscription_response_failure_helper &);
 
@@ -55,7 +55,7 @@ public:
 
 private:
 
-  bool encode_e2ap_subscription_response(unsigned char *, size_t *);
+  bool encode_e2ap_subscription_response(unsigned char *, ssize_t *);
 
   void set_fields_success( subscription_response_helper &);
   void set_fields_unsuccess( subscription_response_failure_helper &);

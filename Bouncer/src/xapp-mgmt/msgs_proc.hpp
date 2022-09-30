@@ -57,7 +57,7 @@ public:
 	 void operator() (rmr_mbuf_t *, bool*);
 
 	 void register_handler();
-	 bool encode_subscription_delete_request(unsigned char*, size_t* );
+	 bool encode_subscription_delete_request(unsigned char*, ssize_t* );
 
 	 bool decode_subscription_response(unsigned char*, size_t );
 

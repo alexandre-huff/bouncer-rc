@@ -59,7 +59,7 @@
 
 };
 
-bool e2sm_subscription::encode_event_trigger(unsigned char *buf, size_t *size, e2sm_subscription_helper &helper){
+bool e2sm_subscription::encode_event_trigger(unsigned char *buf, ssize_t *size, e2sm_subscription_helper &helper){
 
   ASN_STRUCT_RESET(asn_DEF_E2SM_Bouncer_EventTriggerDefinition, event_trigger);
 
@@ -97,7 +97,7 @@ bool e2sm_subscription::encode_event_trigger(unsigned char *buf, size_t *size, e
   return true;
 }
 
-bool e2sm_subscription::encode_action_defn(unsigned char *buf, size_t *size, e2sm_subscription_helper &helper){
+bool e2sm_subscription::encode_action_defn(unsigned char *buf, ssize_t *size, e2sm_subscription_helper &helper){
 
   bool res;
   res = set_fields(action_defn, helper);

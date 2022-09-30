@@ -71,7 +71,7 @@
 
 };
 
-bool e2sm_control::encode_control_header(unsigned char *buf, size_t *size, e2sm_control_helper &helper){
+bool e2sm_control::encode_control_header(unsigned char *buf, ssize_t *size, e2sm_control_helper &helper){
 
   ASN_STRUCT_RESET(asn_DEF_E2SM_Bouncer_ControlHeader, control_head);
 
@@ -111,7 +111,7 @@ bool e2sm_control::encode_control_header(unsigned char *buf, size_t *size, e2sm_
   return true;
 }
 
-bool e2sm_control::encode_control_message(unsigned char *buf, size_t *size, e2sm_control_helper &helper){
+bool e2sm_control::encode_control_message(unsigned char *buf, ssize_t *size, e2sm_control_helper &helper){
 
   bool res;
   res = set_fields(control_msg, helper);
@@ -206,7 +206,7 @@ bool e2sm_control::get_fields(E2SM_Bouncer_ControlMessage_t * ref_control_messag
 	  return true;
   }
 
-bool e2sm_control::encode_rc_control_header(unsigned char *buf, size_t *size, UEID_t *ueid) {
+bool e2sm_control::encode_rc_control_header(unsigned char *buf, ssize_t *size, UEID_t *ueid) {
   rc_control_header = (E2SM_RC_ControlHeader_t *) calloc(1, sizeof(E2SM_RC_ControlHeader_t));
 
   bool res = set_fields(rc_control_header, ueid);
@@ -243,7 +243,7 @@ bool e2sm_control::encode_rc_control_header(unsigned char *buf, size_t *size, UE
   return true;
 }
 
-bool e2sm_control::encode_rc_control_message(unsigned char *buf, size_t *size) {
+bool e2sm_control::encode_rc_control_message(unsigned char *buf, ssize_t *size) {
   rc_control_msg = (E2SM_RC_ControlMessage_t *) calloc(1, sizeof(E2SM_RC_ControlMessage_t));
 
   bool res;
@@ -340,7 +340,7 @@ E2SM_RC_ControlHeader_Format1_t *e2sm_control::generate_e2sm_rc_control_header_f
   return ctrlhead_fmt1;
 }
 
-bool e2sm_control::generate_e2sm_rc_ueid(UEID_t *ueid) {
+void e2sm_control::generate_e2sm_rc_ueid(UEID_t *ueid) {
   UEID_GNB_t *ueid_gnb = (UEID_GNB_t *) calloc(1, sizeof(UEID_GNB_t));
 
   // an integer between 0..2^40-1, but we only alloc 1 byte to store values between 0..255
@@ -500,7 +500,7 @@ OCTET_STRING_t *e2sm_control::generate_and_encode_nr_cgi(const char *plmnid, uns
   // fprintf(stderr, "NR_CGI set up\n");
 
   uint8_t nr_cgi_buffer[8192] = {0, };
-  size_t nr_cgi_buffer_size = 8192;
+  ssize_t nr_cgi_buffer_size = 8192;
 
   asn_enc_rval_t retval = asn_encode_to_buffer(NULL, ATS_ALIGNED_BASIC_PER,
                           &asn_DEF_NR_CGI, nr_cgi, nr_cgi_buffer, nr_cgi_buffer_size);
