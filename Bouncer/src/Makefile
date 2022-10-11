@@ -84,7 +84,7 @@ b_xapp_main: $(OBJ)
 	$(CXX) -o $@  $(OBJ) $(LIBS) $(RNIBFLAGS) $(CPPFLAGS) $(CLOGFLAGS)
 
 install: b_xapp_main
-	install  -D b_xapp_main  /usr/local/bin/b_xapp_main
+	install -D b_xapp_main /usr/local/bin/b_xapp_main
 
 clean:
-	-rm *.o $(ASNSRC)/*.o $(ASNSRC_BOUNCER)/*.o $(E2APSRC)/*.o $(UTILSRC)/*.o $(E2SMSRC)/*.o $(MSGSRC)/*.o b_xapp_main
+	-rm -f *.o $(ASNSRC)/*.o $(ASNSRC_BOUNCER)/*.o $(E2APSRC)/*.o $(UTILSRC)/*.o $(E2SMSRC)/*.o $(MSGSRC)/*.o b_xapp_main
