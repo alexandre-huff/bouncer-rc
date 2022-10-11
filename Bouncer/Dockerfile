@@ -21,113 +21,85 @@ ARG SCHEMA_PATH=schemas
 ARG STAGE_DIR=/tmp/bouncer-xapp
 
 #==================================================================================
-FROM nexus3.o-ran-sc.org:10001/ubuntu:18.04 as ricbuild
+FROM nexus3.o-ran-sc.org:10002/o-ran-sc/bldr-ubuntu20-c-go:1.0.0 as ricbuild
 
-# to override repo base, pass in repo argument when running docker build:
-# docker build --build-arg REPOBASE=http://abc.def.org . ....
-ARG REPOBASE=https://gerrit.oran-osc.org/r
-ARG SCHEMA_FILE
 ARG SCHEMA_PATH
 ARG STAGE_DIR
 
 # Install necessary packages
-WORKDIR ${STAGE_DIR}
 RUN apt-get update  \
-     && apt-get install -y \
-     cmake \
-     git \
-     build-essential \
-     automake \
-     autoconf-archive \
-     autoconf \
-     pkg-config \
-     gawk \
-     libtool \
-     wget \
-     zlib1g-dev \
-     libffi-dev \
-     && apt-get clean
+    && apt-get install -y \
+    cmake \
+    git \
+    build-essential \
+    automake \
+    autoconf-archive \
+    autoconf \
+    pkg-config \
+    gawk \
+    libtool \
+    wget \
+    zlib1g-dev \
+    libffi-dev \
+    libcpprest-dev \
+    cpputest \
+    libhiredis-dev \
+    libcurl4-openssl-dev \
+    && apt-get clean
+
+WORKDIR ${STAGE_DIR}
 
 # Install mdclog using debian package hosted at packagecloud.io
 ARG MDC_VER=0.1.4-1
-RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/mdclog_${MDC_VER}_amd64.deb/download.deb
-RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/mdclog-dev_${MDC_VER}_amd64.deb/download.deb
-RUN dpkg -i mdclog_${MDC_VER}_amd64.deb
-RUN dpkg -i mdclog-dev_${MDC_VER}_amd64.deb
+RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/mdclog_${MDC_VER}_amd64.deb/download.deb && \
+    wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/mdclog-dev_${MDC_VER}_amd64.deb/download.deb && \
+    dpkg -i mdclog_${MDC_VER}_amd64.deb mdclog-dev_${MDC_VER}_amd64.deb
 
-# Install RMr using debian package hosted at packagecloud.io
+# Install RMR using debian package hosted at packagecloud.io
 ARG RMR_VER=4.8.3
-RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rmr_${RMR_VER}_amd64.deb/download.deb
-RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rmr-dev_${RMR_VER}_amd64.deb/download.deb
-RUN dpkg -i rmr_${RMR_VER}_amd64.deb
-RUN dpkg -i rmr-dev_${RMR_VER}_amd64.deb
+RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rmr_${RMR_VER}_amd64.deb/download.deb && \
+    wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rmr-dev_${RMR_VER}_amd64.deb/download.deb && \
+    dpkg -i rmr_${RMR_VER}_amd64.deb rmr-dev_${RMR_VER}_amd64.deb
 
 #Install RNIB libraries
 ARG RNIB_VER=1.2.5
-RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rnib_${RNIB_VER}_all.deb/download.deb
-RUN dpkg -i rnib_${RNIB_VER}_all.deb
+RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rnib_${RNIB_VER}_all.deb/download.deb && \
+    dpkg -i rnib_${RNIB_VER}_all.deb
+
+RUN git clone https://github.com/azadkuh/nlohmann_json_release.git && \
+    mkdir /usr/local/include/nlohmann && \
+    cp nlohmann_json_release/json.hpp /usr/local/include/nlohmann
 
 ## Install SDL Libraries
-WORKDIR ${STAGE_DIR}
-RUN apt-get install -y cpputest
-RUN apt-get remove -y libboost-all-dev
-RUN apt-get install -y  libboost-all-dev
-RUN apt-get install -y libhiredis-dev
-#RUN apt-get install -y valgrind
-
-RUN mkdir /usr/local/include/nlohmann
-RUN git clone https://github.com/azadkuh/nlohmann_json_release.git
-RUN cp nlohmann_json_release/json.hpp /usr/local/include/nlohmann
-
-RUN git clone https://gerrit.o-ran-sc.org/r/ric-plt/dbaas
-RUN cd dbaas/redismodule && \
+RUN git clone https://gerrit.o-ran-sc.org/r/ric-plt/dbaas && \
+    cd dbaas/redismodule && \
     ./autogen.sh && \
     ./configure && \
-    make all && \
+    make -j 4 all && \
     make install
 
-WORKDIR ${STAGE_DIR}
-RUN git clone https://gerrit.o-ran-sc.org/r/ric-plt/sdl
-RUN cd sdl && \
+RUN git clone https://gerrit.o-ran-sc.org/r/ric-plt/sdl && \
+    cd sdl && \
     ./autogen.sh && \
     ./configure && \
-    make all && \
+    make -j 4 all && \
     make install
 
-
-WORKDIR ${STAGE_DIR}
 ## Install rapidjson
-
 RUN git clone https://github.com/Tencent/rapidjson && \
     cd rapidjson && \
     mkdir build && \
     cd build && \
     cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
-    make install && \
+    make -j 4 install && \
     cd ${STAGE_DIR} && \
     rm -rf rapidjson
 
-WORKDIR ${STAGE_DIR}
-## Install CPPRESTSDK
-
-RUN apt-get install -y libcpprest-dev
-RUN apt-get install -y  g++ git libboost-atomic-dev libboost-thread-dev libboost-system-dev libboost-date-time-dev libboost-regex-dev libboost-filesystem-dev libboost-random-dev libboost-chrono-dev libboost-serialization-dev libwebsocketpp-dev openssl libssl-dev ninja-build zlib1g-dev
-RUN git clone https://github.com/Microsoft/cpprestsdk.git casablanca && \
-    cd casablanca && \
-    mkdir build && \
-    cd build && \
-    cmake -G Ninja .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DBUILD_SAMPLES=OFF -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
-    ninja && \
-    ninja install && \
-    cd ${STAGE_DIR}
-    #rm -rf casablanca
 
 ##-----------------------------------
 # Now install the program
 #------------------------------------
 COPY ./ ${STAGE_DIR}
-# RUN ls -al
-
 
 RUN export CPATH=$CPATH:/usr/local/include && \
     cd src && \
@@ -135,53 +107,38 @@ RUN export CPATH=$CPATH:/usr/local/include && \
     # . ./xapp_env.sh \
     # source ./xapp_env.sh \
     make clean && \
-    make install
+    make -j 4 install
 
-COPY ${SCHEMA_PATH}/* /etc/xapp/
-COPY init/init_script.py /etc/xapp/init_script.py
-COPY init/routes.txt  /etc/xapp/routes.txt
-COPY init/config-map.yaml  /etc/xapp/config-map.yaml
+COPY ${SCHEMA_PATH}/* init/routes.txt init/config-map.yaml /etc/xapp/
+# COPY init/init_script.py /etc/xapp/init_script.py
+
+
 #---------------------------------------------
 # #Build the final version
+FROM ubuntu:20.04
 
-# FROM ubuntu:18.04 // FIXME Huff: uncomment from here
+ARG STAGE_DIR
 
-# ARG SCHEMA_PATH
-# ARG STAGE_DIR
+RUN apt-get update && \
+    apt-get install -y libcpprest2.10 libhiredis0.14 && \
+    apt-get clean
 
-# ## copy just the needed libraries install it into the final image
-# COPY --from=ricbuild ${STAGE_DIR}/*.deb /tmp/
-# COPY --from=ricbuild /usr/local/lib/librmr_si* /usr/local/lib/
-# COPY --from=ricbuild /usr/local/lib/libsdl* /usr/local/lib/
-# COPY --from=ricbuild /usr/local/libexec/redismodule/libredis* /usr/local/libexec/redismodule/
-# RUN dpkg -i /tmp/*.deb
-# RUN apt-get update && \
-#     apt-get install -y libcurl3 python3 && \
-#     # apt-get install -y libboost-all-dev cpputest libcpprest-dev libhiredis-dev valgrind && \
-#     apt-get install -y libboost-all-dev cpputest libcpprest-dev libhiredis-dev && \
-#     apt-get clean
-# COPY --from=ricbuild /etc/xapp/* /etc/xapp/
-# COPY --from=ricbuild /usr/local/bin/b_xapp_main /usr/local/bin/b_xapp_main
-# COPY --from=ricbuild /usr/local/lib/libcpprest.so* /usr/local/bin/
-# COPY --from=ricbuild /usr/local/lib/libcpprest.so* /usr/local/lib/
-# COPY --from=ricbuild /usr/local/include/rnib/*.h /usr/local/include/rnib/
-# COPY --from=ricbuild /usr/local/include/rnib/rnibreader.a /usr/local/include/rnib/
-# FIXME Huff: uncomment to here
+## copy just the needed libraries install them into the final image
+COPY --from=ricbuild ${STAGE_DIR}/rmr_*.deb ${STAGE_DIR}/mdclog_*.deb /tmp/
+RUN dpkg -i /tmp/*.deb && \
+    rm -f /tmp/*.deb
 
-
-RUN ldconfig
-RUN sysctl -w net.ipv6.conf.lo.disable_ipv6=1
+COPY --from=ricbuild /etc/xapp/* /etc/xapp/
+COPY --from=ricbuild /usr/local/bin/b_xapp_main /usr/local/bin/b_xapp_main
 
 ##ENV  PYTHONHOME=/opt/python3 \
 ##     PYTHONPATH=/opt/python3 \
-ENV  RMR_RTG_SVC="9999" \
-     RMR_SEED_RT="/etc/xapp/routes.txt" \
-     LD_LIBRARY_PATH="/usr/local/lib:/usr/local/libexec" \
-     VERBOSE=0 \
-     CONFIG_MAP_NAME=/etc/xapp/config-map.yaml \
-     CONFIG_FILE=/opt/ric/config/config-file.json
-
-
+ENV RMR_RTG_SVC="9999" \
+    RMR_SEED_RT="/etc/xapp/routes.txt" \
+    LD_LIBRARY_PATH="/usr/local/lib:/usr/local/libexec" \
+    VERBOSE=0 \
+    CONFIG_MAP_NAME=/etc/xapp/config-map.yaml \
+    CONFIG_FILE=/opt/ric/config/config-file.json
 
 # CMD python3 /etc/xapp/init_script.py $CONFIG_FILE
 # CMD ["sleep", "360000"]
