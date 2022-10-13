@@ -127,7 +127,7 @@ void XappSettings::loadDefaultSettings(){
 		theSettings[XAPP_NAME] = DEFAULT_XAPP_NAME;
 	}
 	if(theSettings[XAPP_ID].empty()){
-		theSettings[XAPP_ID] = DEFAULT_XAPP_NAME; //for now xapp_id is same as xapp_name since single xapp instance.
+		theSettings[XAPP_ID] = DEFAULT_XAPP_NAME; // xapp_id and xapp_name are the same by default
 	}
 	if(theSettings[LOG_LEVEL].empty()){
 		theSettings[LOG_LEVEL] = DEFAULT_LOG_LEVEL;
@@ -156,7 +156,7 @@ void XappSettings::loadEnvVarSettings(){
 		theSettings[XAPP_NAME].assign(env_xname);
 		mdclog_write(MDCLOG_INFO,"Xapp Name set to %s from environment variable", theSettings[XAPP_NAME].c_str());
 	}
-	if (const char *env_xid = std::getenv("XAPP_NAME")){
+	if (const char *env_xid = std::getenv("XAPP_ID")){
 		theSettings[XAPP_ID].assign(env_xid);
 		mdclog_write(MDCLOG_INFO,"Xapp ID set to %s from environment variable", theSettings[XAPP_ID].c_str());
 	}
