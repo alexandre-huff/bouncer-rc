@@ -71,11 +71,11 @@ void Xapp::startup(SubscriptionHandler &sub_ref) {
 	subhandler_ref = &sub_ref;
 	set_rnib_gnblist();
 
-	startup_registration_request();
+	startup_registration_request(); // throws std::exception
 
 	//send subscriptions.
 	// startup_subscribe_kpm_requests();
-	startup_subscribe_rc_requests();
+	startup_subscribe_rc_requests(); // throws std::exception
 
 	//read A1 policies
 	//startup_get_policies();
@@ -504,7 +504,8 @@ inline void Xapp::subscribe_request(string meid) {
 	}
 	catch (const std::exception &e)
 	{
-		mdclog_write(MDCLOG_ERR, "Error exception:%s\n", e.what());
+		mdclog_write(MDCLOG_ERR, "xapp subscription exception: %s\n", e.what());
+		throw;
 	}
 }
 
@@ -535,7 +536,7 @@ void Xapp::startup_subscribe_rc_requests(){
 		}
 
 	} else {
-		mdclog_write(MDCLOG_INFO, "Subscriptions cannot be sent as GNBList in RNIB is NULL");
+		throw std::runtime_error("Subscriptions cannot be sent as GNBList in RNIB is NULL");
 	}
 
 	std::cout << "\nSubscription map size = " << subscription_map.size() << "\n\n";
@@ -578,7 +579,7 @@ void Xapp::set_rnib_gnblist(void) {
 	    }
 
 	    if(!doc.HasMember("gnb_list")){
-	    	mdclog_write(MDCLOG_INFO, "JSON Has No GNB List Object");
+	        mdclog_write(MDCLOG_ERR, "JSON Has No GNB List Object");
 	    	return;
 	    }
 	    assert(doc.HasMember("gnb_list"));
@@ -588,7 +589,7 @@ void Xapp::set_rnib_gnblist(void) {
 	      return;
 
 	    if(!gnblist.IsArray()){
-	    	mdclog_write(MDCLOG_INFO, "GNB List is not an array");
+	        mdclog_write(MDCLOG_ERR, "GNB List is not an array");
 	    	return;
 	    }
 
@@ -680,8 +681,9 @@ void Xapp::startup_registration_request() {
 				previousTask.wait();
 			} catch (exception& e) {
 				mdclog_write(MDCLOG_ERR, "xapp registration exception: %s", e.what());
+				throw;
 			}
-		});
+		}).get();	// get allows rethrowing exceptions from task
 }
 
 void Xapp::shutdown_deregistration_request() {

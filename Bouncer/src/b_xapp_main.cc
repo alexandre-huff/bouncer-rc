@@ -163,7 +163,17 @@ int main(int argc, char *argv[]){
 	//Startup E2 subscription
 	// std::thread t1(std::ref(start_server)); // please check out the comments in the start_server function
 	// t1.detach();
-	b_xapp->startup(sub_handler);
+	try {
+		b_xapp->startup(sub_handler);
+
+	} catch(std::exception &e) {
+		mdclog_write(MDCLOG_ERR, "Unable to startup xapp %s. Reason = %s",
+					config[XappSettings::SettingName::XAPP_ID].c_str(),  e.what());
+
+		b_xapp->shutdown();
+
+		exit(EXIT_FAILURE);
+	}
 
 	sleep(2);
 
