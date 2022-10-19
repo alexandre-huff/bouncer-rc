@@ -89,7 +89,7 @@ bool e2sm_control::encode_control_header(unsigned char *buf, ssize_t *size, e2sm
   }
 
   if (mdclog_level_get() > MDCLOG_INFO) {
-    xer_fprint(stdout, &asn_DEF_E2SM_Bouncer_ControlHeader, control_head);
+    xer_fprint(stderr, &asn_DEF_E2SM_Bouncer_ControlHeader, control_head);
   }
 
   asn_enc_rval_t retval = asn_encode_to_buffer(0, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2SM_Bouncer_ControlHeader, control_head, buf, *size);
@@ -127,7 +127,7 @@ bool e2sm_control::encode_control_message(unsigned char *buf, ssize_t *size, e2s
   }
 
   if (mdclog_level_get() > MDCLOG_INFO) {
-    xer_fprint(stdout, &asn_DEF_E2SM_Bouncer_ControlMessage, control_msg);
+    xer_fprint(stderr, &asn_DEF_E2SM_Bouncer_ControlMessage, control_msg);
   }
 
   asn_enc_rval_t retval = asn_encode_to_buffer(0, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2SM_Bouncer_ControlMessage, control_msg, buf, *size);
@@ -221,7 +221,7 @@ bool e2sm_control::encode_rc_control_header(unsigned char *buf, ssize_t *size, U
   }
 
   if (mdclog_level_get() > MDCLOG_INFO) {
-    xer_fprint(stdout, &asn_DEF_E2SM_RC_ControlHeader, rc_control_header);
+    xer_fprint(stderr, &asn_DEF_E2SM_RC_ControlHeader, rc_control_header);
   }
 
   asn_enc_rval_t retval = asn_encode_to_buffer(0, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2SM_RC_ControlHeader, rc_control_header, buf, *size);
@@ -261,7 +261,7 @@ bool e2sm_control::encode_rc_control_message(unsigned char *buf, ssize_t *size) 
   asn_enc_rval_t retval = asn_encode_to_buffer(0, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2SM_RC_ControlMessage, rc_control_msg, buf, *size);
 
   if(mdclog_level_get() > MDCLOG_INFO) {
-    xer_fprint(stdout, &asn_DEF_E2SM_RC_ControlMessage, rc_control_msg);
+    xer_fprint(stderr, &asn_DEF_E2SM_RC_ControlMessage, rc_control_msg);
   }
 
   if(retval.encoded == -1){

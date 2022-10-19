@@ -30,6 +30,8 @@
 #include <pthread.h>
 #include <unordered_map>
 #include <thread>
+#include <cpprest/http_listener.h>
+#include <cpprest/http_msg.h>
 #include "xapp_rmr.hpp"
 #include "xapp_sdl.hpp"
 #include "rapidjson/writer.h"
@@ -41,9 +43,12 @@
 extern "C" {
 #include "rnib/rnibreader.h"
 }
+
 using namespace std;
 using namespace std::placeholders;
 using namespace rapidjson;
+using namespace web::http;
+using namespace web::http::experimental::listener;
 
 
 class Xapp{
@@ -80,11 +85,16 @@ private:
   void shutdown_deregistration_request();
   inline void subscribe_request(string);
   inline void subscribe_delete_request(string);
+  void startup_http_listener();
+  void shutdown_http_listener();
+  void handle_request(http_request request);
+  void handle_error(pplx::task<void>& t, const utility::string_t msg);
 
 
   XappRmr * rmr_ref;
   XappSettings * config_ref;
   SubscriptionHandler *subhandler_ref;
+  std::unique_ptr<http_listener> listener;
 
   std::mutex *xapp_mutex;
   std::vector<std::thread> xapp_rcv_thread;

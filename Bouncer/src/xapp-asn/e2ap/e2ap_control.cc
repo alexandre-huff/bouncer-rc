@@ -98,7 +98,7 @@ bool ric_control_request::encode_e2ap_control_request(unsigned char *buf, ssize_
   }
 
   if (mdclog_level_get() > MDCLOG_INFO) {
-    asn_fprint(stdout, &asn_DEF_E2AP_PDU, e2ap_pdu_obj);
+    asn_fprint(stderr, &asn_DEF_E2AP_PDU, e2ap_pdu_obj);
   }
 
   asn_enc_rval_t retval = asn_encode_to_buffer(0, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2AP_PDU, e2ap_pdu_obj, buf, *size);

@@ -73,6 +73,8 @@ void Xapp::startup(SubscriptionHandler &sub_ref) {
 
 	startup_registration_request(); // throws std::exception
 
+	startup_http_listener();	// throws std::exception
+
 	//send subscriptions.
 	// startup_subscribe_kpm_requests();
 	startup_subscribe_rc_requests(); // throws std::exception
@@ -112,6 +114,8 @@ void Xapp::shutdown(){
 
 	sleep(2);
 	rmr_ref->set_listen(false);
+
+	shutdown_http_listener();
 
 	//Joining the threads
 	int threadcnt = xapp_rcv_thread.size();
@@ -491,8 +495,8 @@ inline void Xapp::subscribe_request(string meid) {
 	// serialize the user details.
 	.then([meid, this](json::value jsonObject)
 		{
-			std::cout << "\nReceived REST subscription response\n";
-			std::wcout << jsonObject.serialize().c_str() << "\n";
+			std::cout << "\nReceived REST subscription response: " << jsonObject.serialize().c_str() << "\n\n";
+
 			std::string tmp;
 			tmp = jsonObject[U("SubscriptionId")].as_string();
 			subscription_map.emplace(std::make_pair(meid, tmp));
@@ -539,7 +543,7 @@ void Xapp::startup_subscribe_rc_requests(){
 		throw std::runtime_error("Subscriptions cannot be sent as GNBList in RNIB is NULL");
 	}
 
-	std::cout << "\nSubscription map size = " << subscription_map.size() << "\n\n";
+	// std::cout << "\nSubscription map size = " << subscription_map.size() << "\n\n";
 }
 
 void Xapp::startup_get_policies(void){
@@ -636,14 +640,14 @@ void Xapp::startup_registration_request() {
 				{"appName", xapp_name},
 				{"appVersion", version},
 				{"configPath", config_path},
-				{"appInstanceName", xapp_id},	// FIXME needs to figure out how xapp_id exactly works in the RIC
+				{"appInstanceName", xapp_id},
 				{"httpEndpoint", http_addr},
 				{"rmrEndpoint", rmr_addr},
 				{"config", config_str}
 			};
 
 			if (mdclog_level_get() > MDCLOG_INFO) {
-				cout << "registration body is\n" << jObj.dump(4) << "\n";
+				cerr << "registration body is\n" << jObj.dump(4) << "\n";
 			}
 			utility::stringstream_t s;
 			s << jObj.dump().c_str();
@@ -701,7 +705,7 @@ void Xapp::shutdown_deregistration_request() {
 			};
 
 			if (mdclog_level_get() > MDCLOG_INFO) {
-				cout << "deregistration body is\n" << jObj.dump(4) << "\n";
+				cerr << "deregistration body is\n" << jObj.dump(4) << "\n";
 			}
 			utility::stringstream_t s;
 			s << jObj.dump().c_str();
@@ -741,4 +745,92 @@ void Xapp::shutdown_deregistration_request() {
 				mdclog_write(MDCLOG_ERR, "deregistration exception: %s", e.what());
 			}
 		});
+}
+
+void Xapp::handle_error(pplx::task<void>& t, const utility::string_t msg) {
+	try {
+		t.get();
+	} catch (std::exception& e) {
+		mdclog_write(MDCLOG_ERR, "%s : Reason = %s", msg.c_str(), e.what());
+	}
+}
+
+/*
+	Handles JSON in http requests.
+
+	Currenty we do nothing but logging the request.
+*/
+void Xapp::handle_request(http_request request) {
+
+	if (mdclog_level_get() > MDCLOG_INFO) {
+		cerr << "\n===== Handling HTTP request =====\n" << request.to_string() << "\n=================================\n\n";
+	}
+
+	auto answer = json::value::object();
+	request
+		.extract_json()
+		.then([&answer, request, this](pplx::task<json::value> task) {
+			try {
+				answer = task.get();
+				mdclog_write(MDCLOG_INFO, "Received REST notification %s", answer.serialize().c_str());
+
+				request.reply(status_codes::OK, answer)
+					.then([this](pplx::task<void> t)
+					{
+						handle_error(t, "http reply exception");
+					});
+
+			} catch (http_exception const &e) {
+				mdclog_write(MDCLOG_ERR, "unable to process JSON payload from http request. Reason = %s", e.what());
+
+				request.reply(status_codes::InternalError)
+					.then([this](pplx::task<void> t)
+					{
+						handle_error(t, "http reply exception");
+					});
+			}
+
+		}).wait();
+
+}
+
+void Xapp::startup_http_listener() {
+	mdclog_write(MDCLOG_INFO, "Starting up HTTP Listener");
+
+	utility::string_t port = U(config_ref->operator[](XappSettings::SettingName::HTTP_PORT));
+	utility::string_t address = U("http://0.0.0.0:");
+	address.append(port);
+	address.append(U("/ric/v1/subscriptions/response"));
+	uri_builder uri(address);
+
+	auto addr = uri.to_uri().to_string();
+	if (!uri::validate(addr)) {
+		throw std::runtime_error("unable starting up the http listener due to invalid URI: " + addr);
+	}
+
+	listener = make_unique<http_listener>(addr);
+	mdclog_write(MDCLOG_INFO, "Listening for REST Notification at: %s", addr.c_str());
+
+	listener->support(methods::POST,[this](http_request request) { handle_request(request); });
+	listener->support(methods::PUT,[this](http_request request){ handle_request(request); });
+	try {
+		listener
+			->open()
+			.wait();	// non-blocking operation
+
+	} catch (exception const &e) {
+		mdclog_write(MDCLOG_ERR, "startup http listener exception: %s", e.what());
+		throw;
+	}
+}
+
+void Xapp::shutdown_http_listener() {
+	mdclog_write(MDCLOG_INFO, "Shutting down HTTP Listener");
+
+	try {
+		listener->close().wait();
+
+	} catch (exception const &e) {
+		mdclog_write(MDCLOG_ERR, "shutdown http listener exception: %s", e.what());
+	}
 }

@@ -229,19 +229,19 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 
 		case (RIC_INDICATION):
 		{
-			mdclog_write(MDCLOG_INFO, "Decoding indication for msg = %d", message->mtype);
+			mdclog_write(MDCLOG_DEBUG, "Decoding indication for msg = %d", message->mtype);
 
 			ASN_STRUCT_RESET(asn_DEF_E2AP_PDU, e2pdu);
 			asn_transfer_syntax syntax;
 			syntax = ATS_ALIGNED_BASIC_PER;
 
-			mdclog_write(MDCLOG_INFO, "Data_size = %d", message->len);
+			mdclog_write(MDCLOG_DEBUG, "Data_size = %d", message->len);
 
 			auto rval = asn_decode(nullptr, syntax, &asn_DEF_E2AP_PDU, (void **)&e2pdu, message->payload, message->len);
 
 			if (rval.code == RC_OK)
 			{
-				mdclog_write(MDCLOG_INFO, "rval.code = %d ", rval.code);
+				mdclog_write(MDCLOG_DEBUG, "rval.code = %d ", rval.code);
 			}
 			else
 			{
@@ -250,7 +250,7 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 			}
 
 			if (mdclog_level_get() > MDCLOG_INFO)
-				asn_fprint(stdout, &asn_DEF_E2AP_PDU, e2pdu);
+				asn_fprint(stderr, &asn_DEF_E2AP_PDU, e2pdu);
 
 			ric_indication indication;
 			ric_indication_helper ind_helper;
