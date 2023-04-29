@@ -757,8 +757,6 @@ void Xapp::handle_error(pplx::task<void>& t, const utility::string_t msg) {
 
 /*
 	Handles JSON in http requests.
-
-	Currenty we do nothing but logging the request.
 */
 void Xapp::handle_request(http_request request) {
 
@@ -774,13 +772,25 @@ void Xapp::handle_request(http_request request) {
 				answer = task.get();
 				mdclog_write(MDCLOG_INFO, "Received REST notification %s", answer.serialize().c_str());
 
-				request.reply(status_codes::OK, answer)
+				auto subscriptions = answer[U("SubscriptionInstances")].as_array();
+				for (auto sub : subscriptions) {
+					int event = sub[U("E2EventInstanceId")].as_integer();
+					if (event == 0) {				// this is an error message, unable to subscribe to this event
+						auto source = sub[U("ErrorSource")].as_string();
+						auto cause = sub[U("ErrorCause")].as_string();
+						mdclog_write(MDCLOG_ERR, "unable to complete subscription. ErrorSource: %s, ErrorCause: %s", source.c_str(), cause.c_str());
+						kill(getpid(), SIGTERM);	// sending signal to shutdown the application
+						break;
+					}
+				}
+
+				request.reply(status_codes::OK)
 					.then([this](pplx::task<void> t)
 					{
 						handle_error(t, "http reply exception");
 					});
 
-			} catch (http_exception const &e) {
+			} catch (json::json_exception const &e) {
 				mdclog_write(MDCLOG_ERR, "unable to process JSON payload from http request. Reason = %s", e.what());
 
 				request.reply(status_codes::InternalError)

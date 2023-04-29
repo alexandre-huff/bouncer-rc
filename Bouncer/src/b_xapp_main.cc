@@ -24,13 +24,21 @@ using namespace web::http;
 using namespace web::http::experimental::listener;
 using namespace utility;
 
+sig_atomic_t sig_raised = 0;
 
 void signalHandler( int signum ) {
-	cout << "Interrupt signal (" << signum << ") received.\n";
-	exit(signum);
+	mdclog_write(MDCLOG_INFO, "Interrupt signal %d (%s) received.", signum, strsignal(signum));
+	sig_raised = 1;
 }
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[]) {
+	// signal handler to stop xapp gracefully
+	sigset_t set;
+	int sig;
+	sigemptyset(&set);
+	sigaddset(&set, SIGINT);
+	sigaddset(&set, SIGTERM);
+	sigprocmask(SIG_BLOCK, &set, NULL);
 
 	// Get the thread id
 	std::thread::id my_id = std::this_thread::get_id();
@@ -47,13 +55,9 @@ int main(int argc, char *argv[]){
 	XappSettings config;
 	//change the priority depending upon application requirement
 	config.loadDefaultSettings();
-	config.loadXappDescriptorSettings();
 	config.loadEnvVarSettings();
+	config.loadXappDescriptorSettings();
 	config.loadCmdlineSettings(argc, argv);
-
-	//Register signal handler to stop
-	// signal(SIGINT, signalHandler);
-	// signal(SIGTERM, signalHandler);
 
 	//getting the listening port and xapp name info
 	std::string  port = config[XappSettings::SettingName::BOUNCER_PORT];
@@ -65,8 +69,6 @@ int main(int argc, char *argv[]){
 
 
 	//Create Subscription Handler if Xapp deals with Subscription.
-	//std::unique_ptr<SubscriptionHandler> sub_handler = std::make_unique<SubscriptionHandler>();
-
 	SubscriptionHandler sub_handler;
 
 	//create Bouncer Xapp Instance.
@@ -74,6 +76,9 @@ int main(int argc, char *argv[]){
 	b_xapp = std::make_unique<Xapp>(std::ref(config),std::ref(*rmr));
 
 	mdclog_write(MDCLOG_INFO, "Created Bouncer Xapp Instance");
+
+	// Register async signal handler to stop on startup errors received by REST calls
+	signal(SIGTERM, signalHandler);
 
 	//Startup E2 subscription
 	try {
@@ -102,29 +107,26 @@ int main(int argc, char *argv[]){
 
 	b_xapp->start_xapp_receiver(std::ref(*mp_handler), num_threads);
 
-	// signal handler to stop xapp gracefully
-	sigset_t set;
-	int sig;
-	int ret_val;
-	sigemptyset(&set);
-	sigaddset(&set, SIGINT);
-	sigaddset(&set, SIGTERM);
-	sigprocmask(SIG_BLOCK, &set, NULL);
+	if (!sig_raised) {
+		signal(SIGTERM, NULL);	// unregister async signal handler
 
-	ret_val = sigwait(&set, &sig);	// we just wait for a signal to proceed
-	if (ret_val == -1) {
-		mdclog_write(MDCLOG_ERR, "sigwait failed");
-	} else {
-		switch (sig) {
-			case SIGINT:
-				mdclog_write(MDCLOG_INFO, "SIGINT was received");
-				break;
-			case SIGTERM:
-				mdclog_write(MDCLOG_INFO, "SIGTERM was received");
-				break;
-			default:
-				mdclog_write(MDCLOG_WARN, "sigwait returned with sig: %d\n", sig);
-		}
+		do {
+			int ret_val = sigwait(&set, &sig);	// sync: we wait for a signal to proceed
+			if (ret_val == -1) {
+				mdclog_write(MDCLOG_ERR, "sigwait failed");
+			} else {
+				switch (sig) {
+					case SIGINT:
+						mdclog_write(MDCLOG_INFO, "SIGINT was received");
+						break;
+					case SIGTERM:
+						mdclog_write(MDCLOG_INFO, "SIGTERM was received");
+						break;
+					default:
+						mdclog_write(MDCLOG_WARN, "sigwait returned with sig: %d\n", sig);
+				}
+			}
+		} while(sig != SIGINT && sig != SIGTERM);
 	}
 
 	b_xapp->shutdown(); // will start both the subscription and registration delete procedures and join threads
