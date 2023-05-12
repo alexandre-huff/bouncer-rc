@@ -47,9 +47,9 @@ int main(int argc, char *argv[]) {
 
 	thread_id << my_id;
 
-	mdclog_format_initialize(0);	// init mdclog by reading CONFIG_MAP_NAME env var
+	mdclog_format_initialize(1);	// init mdclog by reading CONFIG_MAP_NAME env var
 
-	mdclog_write(MDCLOG_INFO, "Starting bouncer-xapp thread id %s",  thread_id.str().c_str());
+	mdclog_write(MDCLOG_INFO, "Starting bouncer-xapp thread id %s", thread_id.str().c_str());
 
 	//get configuration
 	XappSettings config;

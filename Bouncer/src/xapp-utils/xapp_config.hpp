@@ -34,6 +34,8 @@
 
 #define DEFAULT_LOG_LEVEL	MDCLOG_WARN
 #define DEFAULT_CONFIG_FILE "/opt/ric/config/config-file.json"
+#define DEFAULT_MCC "001"
+#define DEFAULT_MNC "01"
 
 #define ASN_BUFF_MAX_SIZE		4096
 #define MAX_SUBSCRIPTION_ATTEMPTS	10
@@ -57,8 +59,10 @@ public:
 		  HTTP_PORT,
 		  RMR_SRC_ID,
 		  HTTP_SRC_ID,
-		  G_NODE_B
-	}SettingName;
+		  NODEB_ID,	// stored using bit values
+		  MCC,
+		  MNC
+	} SettingName;
 
 	void loadDefaultSettings();
 	void loadCmdlineSettings(int, char **);
@@ -66,12 +70,15 @@ public:
 	void loadXappDescriptorSettings();
 	void usage(char*);
 	string& operator[](const SettingName& theName);
+
+	string buildPlmnId();
 private:
 	typedef map<SettingName, std::string> SettingCollection;
 	SettingCollection theSettings;
 
 	string buildHttpAddress();
 	string buildGlobalGNodeBId(uint8_t *plmn_id, uint32_t gnb_id);
+	string buildGlobalENodeBId(uint8_t *plmn_id, uint32_t enb_id);
 
 };
 

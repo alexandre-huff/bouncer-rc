@@ -76,10 +76,12 @@ public:
   void set_rnib_gnblist(void);
   std::vector<std::string> get_rnib_gnblist(){ return rnib_gnblist; }
 
+  void fetch_connected_nodeb_list();
+
 private:
   void startup_subscribe_kpm_requests(void);
   void startup_subscribe_rc_requests();
-  void shutdown_subscribe_deletes(void);
+  void shutdown_delete_subscriptions(void);
   void startup_get_policies(void );
   void startup_registration_request();
   void shutdown_deregistration_request();
@@ -101,6 +103,7 @@ private:
   std::vector<std::string> rnib_gnblist;
   std::vector<XappMsgHandler> _callbacks;
   std::unordered_map<std::string, std::string> subscription_map;
+  std::unordered_map<std::string, web::json::value> e2node_map;
 };
 
 

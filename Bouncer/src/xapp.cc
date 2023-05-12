@@ -69,7 +69,8 @@ void Xapp::stop(void){
 void Xapp::startup(SubscriptionHandler &sub_ref) {
 
 	subhandler_ref = &sub_ref;
-	set_rnib_gnblist();
+	// set_rnib_gnblist();
+	fetch_connected_nodeb_list();
 
 	startup_registration_request(); // throws std::exception
 
@@ -108,7 +109,7 @@ void Xapp::shutdown(){
 	mdclog_write(MDCLOG_INFO, "Shutting down xapp %s", config_ref->operator[](XappSettings::SettingName::XAPP_ID).c_str());
 
 	//send subscriptions delete.
-	shutdown_subscribe_deletes();
+	shutdown_delete_subscriptions();
 	// send deregistration request
 	shutdown_deregistration_request();
 
@@ -128,84 +129,51 @@ void Xapp::shutdown(){
 	return;
 }
 
-inline void Xapp::subscribe_delete_request(string meid) {
-	auto subs = subscription_map.find(meid);
+inline void Xapp::subscribe_delete_request(string sub_id) {
+	auto delJson = pplx::create_task([sub_id, this]() {
+		utility::string_t port = U("8088");
+		utility::string_t address = U("http://service-ricplt-submgr-http.ricplt.svc.cluster.local:");
+		address.append(port);
+		address.append(U("/ric/v1/subscriptions/"));
+		address.append( utility::string_t(sub_id));
+		uri_builder uri(address);
+		auto addr = uri.to_uri().to_string();
+		http_client client(addr);
+		ucout << utility::string_t(U("making requests at: ")) << addr <<std::endl;
+		return client.request(methods::DEL);
+	})
 
-	if (subs != subscription_map.end()) {
-
-		auto delJson = pplx::create_task([subs, this]() {
-			utility::string_t port = U("8088");
-			utility::string_t address = U("http://service-ricplt-submgr-http.ricplt.svc.cluster.local:");
-			address.append(port);
-			address.append(U("/ric/v1/subscriptions/"));
-			address.append( utility::string_t(subs->second));
-			uri_builder uri(address);
-			auto addr = uri.to_uri().to_string();
-			http_client client(addr);
-			ucout << utility::string_t(U("making requests at: ")) << addr <<std::endl;
-			return client.request(methods::DEL);
-		})
-
-		// Get the response.
-		.then([subs, this](http_response response) {
-			// Check the status code.
-			if (response.status_code() != 204) {
-				throw std::runtime_error("Returned " + std::to_string(response.status_code()));
-			}
-
-			// Convert the response body to JSON object.
-			std::wcout << "Deleted: " << std::boolalpha << (response.status_code() == 204) << std::endl;
-
-			subscription_map.erase(subs->first);	// TODO also remove it from gnblist
-		});
-
-		// serialize the user details.
-
-		try {
-			delJson.wait();
-		}
-		catch (const std::exception& e) {
-			printf("Error exception:%s\n", e.what());
+	// Get the response.
+	.then([sub_id, this](http_response response) {
+		// Check the status code.
+		if (response.status_code() != 204) {
+			throw std::runtime_error("Returned " + std::to_string(response.status_code()));
 		}
 
+		mdclog_write(MDCLOG_INFO, "Subscription %s has been deleted", sub_id.c_str());
+	});
+
+	try {
+		delJson.wait();
 	}
-	else{
-		mdclog_write(MDCLOG_WARN,"Subscription delete cannot send in file=%s, line=%d for MEID %s as not subscribed",__FILE__,__LINE__, meid.c_str());
+	catch (const std::exception& e) {
+		mdclog_write(MDCLOG_ERR, "Subscription delete exception: %s", e.what());
 	}
 }
 
-void Xapp::shutdown_subscribe_deletes(void )
-{
+void Xapp::shutdown_delete_subscriptions() {
 	std::string xapp_id = config_ref->operator [](XappSettings::SettingName::XAPP_ID);
-	std::string gnb_id = config_ref->operator[](XappSettings::SettingName::G_NODE_B);
 
 	mdclog_write(MDCLOG_INFO,"Preparing to send subscription Delete in file=%s, line=%d",__FILE__,__LINE__);
 
-	auto gnblist = get_rnib_gnblist();
+	size_t len = subscription_map.size();
+	mdclog_write(MDCLOG_INFO,"E2 NodeB List size : %lu", len);
 
-	size_t sz = gnblist.size();
-	mdclog_write(MDCLOG_INFO,"GNBList size : %lu", sz);
-
-	if(sz > 0) {
-		string gnb_id = config_ref->operator[](XappSettings::SettingName::G_NODE_B);
-
-		if (gnb_id.empty()) {	// we iterate over all gNodeBs if not specified
-			for(size_t i = 0; i<sz; i++)
-			{
-				sleep(5);
-				mdclog_write(MDCLOG_INFO,"sending subscription delete request %lu out of %lu", i+1, sz);
-				mdclog_write(MDCLOG_INFO,"sending subscription delete to meid = %s", gnblist[i].c_str());
-
-				subscribe_delete_request(gnblist[i]);
-			}
-
-		} else {
-			sleep(5);
-			subscribe_delete_request(gnb_id);
-		}
-
-	} else {
-		mdclog_write(MDCLOG_INFO,"Subscriptions Delete cannot be sent as GNBList in RNIB is NULL");
+	size_t i = 1;
+	for (auto subs : subscription_map) {
+		sleep(5);
+		mdclog_write(MDCLOG_INFO,"sending subscription delete request %lu out of %lu to meid %s", i, len, subs.first.c_str());
+		subscribe_delete_request(subs.second);
 	}
 
 		/*
@@ -516,34 +484,60 @@ inline void Xapp::subscribe_request(string meid) {
 void Xapp::startup_subscribe_rc_requests(){
 	mdclog_write(MDCLOG_INFO, "Preparing to send subscription in file=%s, line=%d", __FILE__, __LINE__);
 
-	auto gnblist = get_rnib_gnblist();
-
-	size_t sz = gnblist.size();
-	mdclog_write(MDCLOG_INFO, "GNBList size : %lu", sz);
-
-	if (sz > 0) {
-		string gnb_id = config_ref->operator[](XappSettings::SettingName::G_NODE_B);
-
-		if (gnb_id.empty()) {	// we iterate over all gNodeBs if not specified
-			for (size_t i = 0; i < sz; i++)
-			{
-				sleep(5);
-				mdclog_write(MDCLOG_INFO, "sending subscription request %lu out of %lu", i + 1, sz);
-
-				// mdclog_write(MDCLOG_INFO,"GNBList,gnblist[i] = %s and ith val = %d", gnblist[i], i);
-				subscribe_request(gnblist[i]);
-			}
-
-		} else {
-			sleep(5);	// FIXME wait for registration to complete
-			subscribe_request(gnb_id); // FIXME this should be called only after the xApp has been registered
-		}
-
-	} else {
-		throw std::runtime_error("Subscriptions cannot be sent as GNBList in RNIB is NULL");
+	size_t len = e2node_map.size();
+	mdclog_write(MDCLOG_INFO, "E2 Node List size : %lu", len);
+	if (len == 0) {
+		throw std::runtime_error("Subscriptions cannot be sent as there is no E2 NodeB connected to the RIC");
 	}
 
-	// std::cout << "\nSubscription map size = " << subscription_map.size() << "\n\n";
+	string nodebid = config_ref->operator[](XappSettings::SettingName::NODEB_ID);
+	unsigned long nodebid_num = 0;
+	string plmnid;
+	if (!nodebid.empty()) {
+		plmnid = config_ref->buildPlmnId();
+		transform(plmnid.begin(), plmnid.end(), plmnid.begin(), ::tolower);	// compare
+		try {
+			nodebid_num = std::stoul(nodebid, nullptr, 2);
+		} catch (std::exception& e) {
+			std::stringstream ss;
+			ss << "unable to convert " << nodebid << " to number: " << e.what();
+			throw std::runtime_error(ss.str());
+		}
+	}
+
+	for (auto e2node : e2node_map) {
+		if (!nodebid.empty()) {
+			auto e2plmn = e2node.second[U("plmnId")].as_string();
+			transform(e2plmn.begin(), e2plmn.end(), e2plmn.begin(), ::tolower);	// compare
+			if (plmnid.compare(e2plmn) != 0) {
+				continue;	// check next
+			}
+			auto e2nbId = e2node.second[U("nbId")].as_string();
+			try {
+				auto nbId = std::stoul(e2nbId, nullptr, 2);
+				if (nodebid_num != nbId) {
+					continue;	// check next
+				}
+
+			} catch (std::exception& e) {
+				// If no conversion could be performed, an invalid_argument exception is thrown.
+				// If the value read is out of the range of representable values by an unsigned long, an out_of_range exception is thrown.
+				std::stringstream ss;
+				ss << "unable to convert " << e2nbId << " to number: " << e.what();
+				throw std::runtime_error(ss.str());
+			}
+		}
+		sleep(5);	// FIXME wait for registration to complete OR pause required between each subscription
+		subscribe_request(e2node.first); // FIXME this can be called only after the xApp has been registered
+
+		if (!nodebid.empty()) {	// we only reach here when it's not empty when we found the nodebId to subscribe and we no longer need to iterate over the map
+			break;	// avoids sleeping over remaining e2node list
+		}
+	}
+
+	if (subscription_map.size() == 0) {
+		throw std::runtime_error("Unable to subscribe to E2 NodeB");
+	}
 }
 
 void Xapp::startup_get_policies(void){
@@ -613,6 +607,72 @@ void Xapp::set_rnib_gnblist(void) {
 	    return;
 
 }
+
+/*
+	Fetches all E2 NodeBs from E2MGR that connected to the RIC, and stores
+	in a map their InventoryName as the key and GlobalNodebID as the value.
+*/
+void Xapp::fetch_connected_nodeb_list() {
+	mdclog_write(MDCLOG_INFO, "Fetching connected E2 NodeB list");
+
+	pplx::create_task([this]()
+		{
+			utility::string_t address = U("http://service-ricplt-e2mgr-http.ricplt.svc.cluster.local:3800");
+			address.append(U("/v1/nodeb/states"));
+			uri_builder uri(address);
+			auto addr = uri.to_uri().to_string();
+			http_client client(addr);
+
+			mdclog_write(MDCLOG_INFO, "sending request for E2 NodeB list at: %s", addr.c_str());
+
+			return client.request(methods::GET,U("/"), U("accept: application/json"));
+		})
+		// Get the response.
+		.then([this](http_response response)
+		{
+			// Check the status code
+			if (response.status_code() != 200) {
+				mdclog_write(MDCLOG_ERR, "request for E2 NodeB list returned http status code %s - %s",
+							std::to_string(response.status_code()).c_str(), response.reason_phrase().c_str());
+
+				throw std::runtime_error("Returned http status code " + std::to_string(response.status_code()));
+			}
+
+			// Convert the response body to JSON object.
+			return response.extract_json();
+		})
+		// serialize the user details.
+		.then([this](web::json::value resp) {
+			mdclog_write(MDCLOG_INFO, "E2 NodeB list has been fetched successfuly");
+
+				try {
+					auto nodeb_list = resp.as_array();
+					for (auto nodeb : nodeb_list) {
+						auto inv_name = nodeb[U("inventoryName")].as_string();
+						auto status = nodeb[U("connectionStatus")].as_string();
+
+						mdclog_write(MDCLOG_DEBUG, "E2 NodeB %s is %s", inv_name.c_str(), status.c_str());
+
+						if (status.compare("CONNECTED") == 0) {
+							this->e2node_map.emplace(inv_name, nodeb[U("globalNbId")]);
+						}
+					}
+
+				} catch (json::json_exception const &e) {
+					mdclog_write(MDCLOG_ERR, "unable to process JSON payload from http response. Reason = %s", e.what());
+				}
+		})
+		// catch any exception
+		.then([](pplx::task<void> previousTask)
+		{
+			try {
+				previousTask.wait();
+			} catch (exception& e) {
+				mdclog_write(MDCLOG_ERR, "Fetch E2 NodeB list exception: %s", e.what());
+			}
+		});
+}
+
 
 void Xapp::startup_registration_request() {
 	mdclog_write(MDCLOG_INFO, "Preparing registration request");
