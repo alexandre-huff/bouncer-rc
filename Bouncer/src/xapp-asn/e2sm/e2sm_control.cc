@@ -55,12 +55,7 @@
   };
 
  e2sm_control::~e2sm_control(void){
-
-  mdclog_write(MDCLOG_DEBUG, "Freeing event trigger object memory");
-
-  control_head->choice.controlHeader_Format1 = 0;
-
-  control_msg->choice.controlMessage_Format1 = 0;
+  mdclog_write(MDCLOG_DEBUG, "Freeing event trigger object memory in func %s", __func__);
 
   ASN_STRUCT_FREE(asn_DEF_E2SM_Bouncer_ControlHeader, control_head);
   ASN_STRUCT_FREE(asn_DEF_E2SM_Bouncer_ControlMessage, control_msg);
@@ -207,8 +202,6 @@ bool e2sm_control::get_fields(E2SM_Bouncer_ControlMessage_t * ref_control_messag
   }
 
 bool e2sm_control::encode_rc_control_header(unsigned char *buf, ssize_t *size, UEID_t *ueid) {
-  rc_control_header = (E2SM_RC_ControlHeader_t *) calloc(1, sizeof(E2SM_RC_ControlHeader_t));
-
   bool res = set_fields(rc_control_header, ueid);
   if (!res){
     return false;
@@ -244,8 +237,6 @@ bool e2sm_control::encode_rc_control_header(unsigned char *buf, ssize_t *size, U
 }
 
 bool e2sm_control::encode_rc_control_message(unsigned char *buf, ssize_t *size) {
-  rc_control_msg = (E2SM_RC_ControlMessage_t *) calloc(1, sizeof(E2SM_RC_ControlMessage_t));
-
   bool res;
   res = set_fields(rc_control_msg);
   if (!res){
@@ -380,7 +371,6 @@ E2SM_RC_ControlMessage_Format1_t *e2sm_control::generate_e2sm_rc_control_msg_for
     return NULL;
   }
 
-  // TODO need to check alloc errors
   E2SM_RC_ControlMessage_Format1_Item_t *format_item = (E2SM_RC_ControlMessage_Format1_Item_t *) calloc(1, sizeof(E2SM_RC_ControlMessage_Format1_Item_t));
   format_item->ranParameter_ID = 1; // Primary Cell ID as in E2SM-RC v01.02 section 8.4.5.1
   format_item->ranParameter_valueType.present = RANParameter_ValueType_PR_ranP_Choice_Structure;
@@ -440,13 +430,14 @@ E2SM_RC_ControlMessage_Format1_t *e2sm_control::generate_e2sm_rc_control_msg_for
       (RANParameter_Value_t *) calloc(1, sizeof(RANParameter_Value_t));
 
   ranp_struct_item4->ranParameter_valueType->choice.ranP_Choice_ElementFalse->ranParameter_value->present = RANParameter_Value_PR_valueOctS;
-  OCTET_STRING_t *nr_cgi = &ranp_struct_item4->ranParameter_valueType->choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueOctS;
   // we should get this information from indication request
-  *nr_cgi = *(generate_and_encode_nr_cgi("747", 89));  // for now we use dummy values
+  OCTET_STRING_t *nr_cgi = (generate_and_encode_nr_cgi("747", 89));  // FIXME for now we use dummy values, update this with correct PLMN ID and cell id
   if(!nr_cgi) {
     ASN_STRUCT_FREE(asn_DEF_E2SM_RC_ControlMessage_Format1, ctrlmsg_fmt1);
     return NULL;  // error string is set on called function
   }
+  ranp_struct_item4->ranParameter_valueType->choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueOctS = *nr_cgi;
+  free(nr_cgi);
 
   return ctrlmsg_fmt1;
 }
@@ -468,12 +459,8 @@ OCTET_STRING_t *e2sm_control::generate_and_encode_nr_cgi(const char *plmnid, uns
   }
 
   OCTET_STRING_fromBuf(&nr_cgi->pLMNIdentity, plmnid, strlen((char *) plmnid));
-  BIT_STRING_t *nr_cell_id = (BIT_STRING_t*) calloc(1, sizeof(BIT_STRING_t));
-  if (nr_cell_id == NULL) {
-    error_string = "unable to alloc NR Cell ID bit string in generate and enconde NR CGI";
-    ASN_STRUCT_FREE(asn_DEF_NR_CGI, nr_cgi);
-    return NULL;
-  }
+
+  NRCellIdentity_t *nr_cell_id = &nr_cgi->nRCellIdentity;
   if(nr_cell_id) {
       nr_cell_id->buf = (uint8_t*)calloc(1,5);
       if(nr_cell_id->buf) {
@@ -484,8 +471,6 @@ OCTET_STRING_t *e2sm_control::generate_and_encode_nr_cgi(const char *plmnid, uns
           nr_cell_id->buf[3] = ((cell_id & 0X0000000FF0) >> 4);
           nr_cell_id->buf[4] = (cell_id & 0X000000000F) << 4;
           nr_cell_id->bits_unused = 4;
-
-          nr_cgi->nRCellIdentity = *nr_cell_id;
       }
   }
 
@@ -494,7 +479,6 @@ OCTET_STRING_t *e2sm_control::generate_and_encode_nr_cgi(const char *plmnid, uns
   if(ret){
     error_string.assign(&errbuf[0], errbuf_len);
     ASN_STRUCT_FREE(asn_DEF_NR_CGI, nr_cgi);
-    ASN_STRUCT_FREE(asn_DEF_BIT_STRING, nr_cell_id);
     return NULL;
   }
   // fprintf(stderr, "NR_CGI set up\n");
@@ -508,7 +492,6 @@ OCTET_STRING_t *e2sm_control::generate_and_encode_nr_cgi(const char *plmnid, uns
   if(retval.encoded == -1){
     error_string.assign(strerror(errno));
     ASN_STRUCT_FREE(asn_DEF_NR_CGI, nr_cgi);
-    ASN_STRUCT_FREE(asn_DEF_BIT_STRING, nr_cell_id);
     return NULL;
   }
   else if (retval.encoded > nr_cgi_buffer_size){
@@ -516,7 +499,6 @@ OCTET_STRING_t *e2sm_control::generate_and_encode_nr_cgi(const char *plmnid, uns
     ss  <<"Error encoding E2SM_RC_ControlHeader. Reason =  encoded pdu size " << retval.encoded << " exceeds buffer size " << nr_cgi_buffer_size << std::endl;
     error_string = ss.str();
     ASN_STRUCT_FREE(asn_DEF_NR_CGI, nr_cgi);
-    ASN_STRUCT_FREE(asn_DEF_BIT_STRING, nr_cell_id);
     return NULL;
   }
 
@@ -524,7 +506,6 @@ OCTET_STRING_t *e2sm_control::generate_and_encode_nr_cgi(const char *plmnid, uns
   if (!ostr) {
     error_string = "unable to encode OCTET_STRING from buffer for NR CGI";
     ASN_STRUCT_FREE(asn_DEF_NR_CGI, nr_cgi);
-    ASN_STRUCT_FREE(asn_DEF_BIT_STRING, nr_cell_id);
     return NULL;
   }
 

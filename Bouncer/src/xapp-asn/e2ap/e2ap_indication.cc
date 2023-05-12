@@ -69,7 +69,7 @@ ric_indication::~ric_indication(void){
   //   ricIndication->protocolIEs.list.size = 0;
   // }
 
-  // free(IE_array);  // FIXME Huff: check for segfault when this is uncommented
+  free(IE_array);
   ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, e2ap_pdu_obj);
   mdclog_write(MDCLOG_DEBUG, "Freed E2AP Indication object memory");
 }

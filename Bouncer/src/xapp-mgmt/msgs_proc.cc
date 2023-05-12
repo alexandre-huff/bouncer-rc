@@ -257,21 +257,14 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 			string error_msg;
 			indication.get_fields(e2pdu->choice.initiatingMessage, ind_helper);
 
-			RCIndicationlHelper rc_ind_helper;
-			E2SM_RC_IndicationHeader_t *indication_header = rc_ind_helper.decode_e2sm_rc_indication_header(&ind_helper.indication_header); // TODO release it afterwards
-			UEID_t *ueid = &indication_header->ric_indicationHeader_formats.choice.indicationHeader_Format2->ueID;
-
-			if (mdclog_level_get() > MDCLOG_INFO) {
-				fprintf(stderr, "E2SM_RC_IndicationHeader is below\n");
-				asn_fprint(stderr, &asn_DEF_E2SM_RC_IndicationHeader, indication_header);
-			}
-
-
 			uint8_t ctrl_header_buf[8192] = {0, };
 			ssize_t ctrl_header_buf_size = 8192;
 
+			UEID_t *ueid = ind_helper.get_ui_id();
+
 			e2sm_control e2sm_control;
 			bool ret_head = e2sm_control.encode_rc_control_header(ctrl_header_buf, &ctrl_header_buf_size, ueid);
+			ASN_STRUCT_FREE(asn_DEF_UEID, ueid);	// we have to release here to avoid memory leaks if encoding returns false
 			if (!ret_head) {
 				mdclog_write(MDCLOG_ERR, "%s", e2sm_control.get_error().c_str());
 				*resend = false;
@@ -336,9 +329,6 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 				*resend = false;
 			}
 
-			// indication.~ric_indication();
-			// ASN_STRUCT_FREE(asn_DEF_UEID, ueid);
-			// ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, e2pdu);
 			if (mdclog_level_get() > MDCLOG_INFO)
 				fprintf(stderr, "end of RIC_INDICATION case\n\n");
 			// num++;
@@ -365,8 +355,7 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 			*resend = false;
 	}
 
-	return;
-
-};
+	ASN_STRUCT_FREE(asn_DEF_E2AP_PDU, e2pdu);
+}
 
 

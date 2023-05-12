@@ -40,16 +40,9 @@ int main(int argc, char *argv[]) {
 	sigaddset(&set, SIGTERM);
 	sigprocmask(SIG_BLOCK, &set, NULL);
 
-	// Get the thread id
-	std::thread::id my_id = std::this_thread::get_id();
-	std::stringstream thread_id;
-	std::stringstream ss;
-
-	thread_id << my_id;
-
 	mdclog_format_initialize(1);	// init mdclog by reading CONFIG_MAP_NAME env var
 
-	mdclog_write(MDCLOG_INFO, "Starting bouncer-xapp thread id %s", thread_id.str().c_str());
+	mdclog_write(MDCLOG_INFO, "Starting bouncer-xapp");
 
 	//get configuration
 	XappSettings config;
@@ -61,7 +54,6 @@ int main(int argc, char *argv[]) {
 
 	//getting the listening port and xapp name info
 	std::string  port = config[XappSettings::SettingName::BOUNCER_PORT];
-	std::string  name = config[XappSettings::SettingName::XAPP_NAME];
 
 	//initialize rmr
 	std::unique_ptr<XappRmr> rmr = std::make_unique<XappRmr>(port);

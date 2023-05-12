@@ -36,14 +36,14 @@
 struct ric_indication_helper{
 
   ric_indication_helper() {
-    ASN_STRUCT_RESET(asn_DEF_RICrequestID, &request_id);
+    memset(&request_id, 0, sizeof(RICrequestID_t));
     func_id = 0;
     action_id = 0;
     indication_type = 0;
     indication_sn = 0;
-    ASN_STRUCT_RESET(asn_DEF_RICcallProcessID, &call_process_id);
-    ASN_STRUCT_RESET(asn_DEF_RICindicationHeader, &indication_header);
-    ASN_STRUCT_RESET(asn_DEF_RICindicationMessage, &indication_msg);
+    memset(&call_process_id, 0, sizeof(RICcallProcessID_t));
+    memset(&indication_header, 0, sizeof(RICindicationHeader_t));
+    memset(&indication_msg, 0, sizeof(RICindicationMessage_t));
   }
 
   RICrequestID_t request_id;
@@ -56,19 +56,29 @@ struct ric_indication_helper{
   RICindicationMessage_t indication_msg;
 
   UEID_t *get_ui_id() {
-    E2SM_RC_IndicationHeader *header = NULL; // FIXME needs free it afterwards
+    E2SM_RC_IndicationHeader_t *header = (E2SM_RC_IndicationHeader_t *) calloc(1, sizeof(E2SM_RC_IndicationHeader_t));
     asn_transfer_syntax syntax = ATS_ALIGNED_BASIC_PER;
     asn_dec_rval_t rval = asn_decode(NULL, syntax, &asn_DEF_UEID, (void **)&header, indication_header.buf, indication_header.size);
     if (rval.code != RC_OK) {
       fprintf(stderr, "ERROR %s:%d unable to decode UEID from indication header\n", __FILE__, __LINE__);
       return nullptr;
     }
-    return &header->ric_indicationHeader_formats.choice.indicationHeader_Format2->ueID;
+
+    UEID_t *ueid = (UEID_t *) calloc(1, sizeof(UEID_t));
+    // shalow copy, but we set the source to NULL to avoid freeing the memory from UEID_t in the indication header struct
+    memcpy(ueid, &header->ric_indicationHeader_formats.choice.indicationHeader_Format2->ueID, sizeof(UEID_t));
+
+    // all the choice fields are pointers, so we can just set any of them to NULL and present to nothing;
+    header->ric_indicationHeader_formats.choice.indicationHeader_Format2->ueID.choice.gNB_UEID = NULL;
+    header->ric_indicationHeader_formats.choice.indicationHeader_Format2->ueID.present = UEID_PR_NOTHING;
+
+    ASN_STRUCT_FREE(asn_DEF_E2SM_RC_IndicationHeader, header);
+
+    return ueid;
   }
 
   E2SM_RC_IndicationMessage_Format5_t *get_indication_msg_fmt5() {
-    // FIXME needs free it afterwards
-    E2SM_RC_IndicationMessage_t *msg = NULL;
+    E2SM_RC_IndicationMessage_t *msg = (E2SM_RC_IndicationMessage_t *) calloc(1, sizeof(E2SM_RC_IndicationMessage_t));
 
     asn_transfer_syntax syntax = ATS_ALIGNED_BASIC_PER;
     asn_dec_rval_t rval = asn_decode(NULL, syntax, &asn_DEF_E2SM_RC_IndicationMessage, (void **)&msg, indication_msg.buf, indication_msg.size);
@@ -78,7 +88,14 @@ struct ric_indication_helper{
       return nullptr;
     }
 
-    return msg->ric_indicationMessage_formats.choice.indicationMessage_Format5;
+    E2SM_RC_IndicationMessage_Format5_t *fmt = msg->ric_indicationMessage_formats.choice.indicationMessage_Format5;
+
+    msg->ric_indicationMessage_formats.choice.indicationMessage_Format5 = NULL;
+    msg->ric_indicationMessage_formats.present = E2SM_RC_IndicationMessage__ric_indicationMessage_formats_PR_NOTHING;
+
+    ASN_STRUCT_FREE(asn_DEF_E2SM_RC_IndicationMessage, msg);
+
+    return fmt;
   }
 
 };

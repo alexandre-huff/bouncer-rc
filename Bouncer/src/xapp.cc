@@ -95,7 +95,7 @@ void Xapp::start_xapp_receiver(XappMsgHandler& mp_handler, int threads){
 	}
 
 	for(int i = 0; i < threads; i++) {
-		mdclog_write(MDCLOG_INFO,"Receiver Thread %d, file= %s, line=%d", i, __FILE__, __LINE__);
+		mdclog_write(MDCLOG_INFO,"Receiver Thread %d, file=%s, line=%d", i, __FILE__, __LINE__);
 		{
 			std::lock_guard<std::mutex> guard(*xapp_mutex);
 			std::thread th_recv([&](){ rmr_ref->xapp_rmr_receive(std::move(mp_handler), rmr_ref);});
