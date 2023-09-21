@@ -32,6 +32,7 @@
 #include <thread>
 #include <cpprest/http_listener.h>
 #include <cpprest/http_msg.h>
+#include <nlohmann/json.hpp>
 #include "xapp_rmr.hpp"
 #include "xapp_sdl.hpp"
 #include "rapidjson/writer.h"
@@ -49,6 +50,8 @@ using namespace std::placeholders;
 using namespace rapidjson;
 using namespace web::http;
 using namespace web::http::experimental::listener;
+
+using jsonn = nlohmann::json;
 
 
 class Xapp{
@@ -80,13 +83,15 @@ public:
 
 private:
   void startup_subscribe_kpm_requests(void);
-  void startup_subscribe_rc_requests();
+  void startup_subscribe_requests();
   void shutdown_delete_subscriptions(void);
   void startup_get_policies(void );
   void startup_registration_request();
   void shutdown_deregistration_request();
-  inline void subscribe_request(string);
+  inline void subscribe_request(string, jsonn);
   inline void subscribe_delete_request(string);
+  jsonn build_rc_subscription_request(string);
+  jsonn build_kpm_subscription_request(string);
   void startup_http_listener();
   void shutdown_http_listener();
   void handle_request(http_request request);

@@ -87,13 +87,14 @@ RUN git clone https://gerrit.o-ran-sc.org/r/ric-plt/sdl && \
 
 ## Install rapidjson
 RUN git clone https://github.com/Tencent/rapidjson && \
-    cd rapidjson && \
-    mkdir build && \
-    cd build && \
-    cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
-    make -j 4 install && \
-    cd ${STAGE_DIR} && \
-    rm -rf rapidjson
+    cp -r rapidjson/include/rapidjson /usr/local/include/
+    # cd rapidjson && \
+    # mkdir build && \
+    # cd build && \
+    # cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+    # make -j 4 install && \
+    # cd ${STAGE_DIR} && \
+    # rm -rf rapidjson
 
 
 ##-----------------------------------
@@ -142,4 +143,5 @@ ENV RMR_RTG_SVC="9999" \
 
 # CMD python3 /etc/xapp/init_script.py $CONFIG_FILE
 # CMD ["sleep", "360000"]
-CMD ["b_xapp_main"]
+CMD while true; do sleep 3600; done
+# CMD ["b_xapp_main"]
