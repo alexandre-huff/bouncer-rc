@@ -96,6 +96,17 @@ RUN git clone https://github.com/Tencent/rapidjson && \
     # cd ${STAGE_DIR} && \
     # rm -rf rapidjson
 
+RUN git clone https://github.com/jupp0r/prometheus-cpp.git && \
+    cd prometheus-cpp && \
+    git submodule init && git submodule update && \
+    mkdir build && cd build && \
+    cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF && \
+    cmake --build . --parallel 4 && \
+    cmake --install . && \
+    # Building packages as well to install in the final image
+    cmake .. -DCPACK_GENERATOR=DEB -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF && \
+    cmake --build . --target package --parallel $(nproc)
+
 
 ##-----------------------------------
 # Now install the program
@@ -125,7 +136,7 @@ RUN apt-get update && \
     apt-get clean
 
 ## copy just the needed libraries install them into the final image
-COPY --from=ricbuild ${STAGE_DIR}/rmr_*.deb ${STAGE_DIR}/mdclog_*.deb /tmp/
+COPY --from=ricbuild ${STAGE_DIR}/rmr_*.deb ${STAGE_DIR}/mdclog_*.deb ${STAGE_DIR}/prometheus-cpp/build/prometheus-cpp_*.deb /tmp/
 RUN dpkg -i /tmp/*.deb && \
     rm -f /tmp/*.deb
 
@@ -142,6 +153,5 @@ ENV RMR_RTG_SVC="9999" \
     CONFIG_FILE=/opt/ric/config/config-file.json
 
 # CMD python3 /etc/xapp/init_script.py $CONFIG_FILE
-# CMD ["sleep", "360000"]
-CMD while true; do sleep 3600; done
-# CMD ["b_xapp_main"]
+# CMD while true; do sleep 3600; done
+CMD ["b_xapp_main"]

@@ -33,6 +33,11 @@
 #include <B-Header.h>
 #include <B-Message.h>
 
+#include "RICindicationHeader.h"
+#include "RICindicationMessage.h"
+#include "E2SM-RC-IndicationHeader.h"
+#include "E2SM-RC-IndicationMessage.h"
+
 class e2sm_indication {
 public:
 	e2sm_indication(void);
@@ -46,6 +51,9 @@ public:
 
   bool encode_indication_header(unsigned char *, ssize_t *, e2sm_indication_helper &);
   bool encode_indication_message(unsigned char*, ssize_t *, e2sm_indication_helper &);
+
+  E2SM_RC_IndicationHeader_t *decode_e2sm_rc_indication_header(RICindicationHeader_t *e2ap_header);
+  E2SM_RC_IndicationMessage_t *decode_e2sm_rc_indication_message(RICindicationMessage_t *e2ap_message);
 
 
   std::string  get_error (void) const {return error_string ;};

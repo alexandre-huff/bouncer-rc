@@ -47,6 +47,8 @@ public:
   bool encode_event_trigger(unsigned char *, ssize_t *, e2sm_subscription_helper &);
   bool encode_action_defn(unsigned char*, ssize_t *, e2sm_subscription_helper &);
 
+  bool encodeRCTriggerDefinitionFormat4(unsigned char *buffer, ssize_t *buflen);
+  bool encodeRCActionDefinitionFormat1(unsigned char *buffer, ssize_t *buflen);
 
   std::string  get_error (void) const {return error_string ;};
 

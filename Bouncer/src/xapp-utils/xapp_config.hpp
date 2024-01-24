@@ -39,7 +39,7 @@
 
 #define ASN_BUFF_MAX_SIZE		4096
 #define MAX_SUBSCRIPTION_ATTEMPTS	10
-#define BOUNCER_POLICY_ID 2
+#define BOUNCER_POLICY_ID 20008
 
 using namespace std;
 

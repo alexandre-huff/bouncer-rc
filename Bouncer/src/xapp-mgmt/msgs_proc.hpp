@@ -29,8 +29,6 @@
 
 #include "a1_helper.hpp"
 #include "e2ap_control.hpp"
-#include "E2SM-RC-ControlMessage-Format1-Item.h"
-#include "E2SM-RC-IndicationMessage-Format5-Item.h"
 #include "e2ap_control_response.hpp"
 #include "e2ap_indication.hpp"
 #include "subscription_delete_request.hpp"
@@ -41,6 +39,12 @@
 #include "e2sm_subscription.hpp"
 #include "subs_mgmt.hpp"
 #include "e2sm_control.hpp"
+#include "metrics.hpp"
+#include "a1_mgmt.hpp"
+
+#include "E2SM-RC-ControlMessage-Format1-Item.h"
+#include "E2SM-RC-IndicationMessage-Format5-Item.h"
+#include "RANParameter-ValueType-Choice-Structure.h"
 
 #define MAX_RMR_RECV_SIZE 2<<15
 
@@ -49,10 +53,14 @@ class XappMsgHandler{
 private:
 	std::string xapp_id;
 	SubscriptionHandler *_ref_sub_handler;
+	A1Handler *_ref_a1_handler;
+	shared_ptr<PrometheusMetrics> prometheusMetrics;
+
+	bool processRanParameter17011(std::string &gnodeb_id, RANParameter_ValueType_Choice_Structure_t *p17011);
 public:
 	//constructor for xapp_id.
 	 XappMsgHandler(std::string xid){xapp_id=xid; _ref_sub_handler=NULL;};
-	 XappMsgHandler(std::string xid, SubscriptionHandler &subhandler){xapp_id=xid; _ref_sub_handler=&subhandler;};
+	 XappMsgHandler(std::string xid, SubscriptionHandler &subhandler, A1Handler &a1handler);
 
 	 void operator() (rmr_mbuf_t *, bool*);
 
@@ -61,7 +69,7 @@ public:
 
 	 bool decode_subscription_response(unsigned char*, size_t );
 
-	 //bool a1_policy_handler(char *, int* , a1_policy_helper &);
+	 bool a1_policy_handler(char *, int* , a1_policy_helper &);
 
 	 void testfunction() {std::cout << "<<<<<<<<<<<<<<<<<<IN TEST FUNCTION<<<<<<<<<<<<<<<" << std::endl;}
 };

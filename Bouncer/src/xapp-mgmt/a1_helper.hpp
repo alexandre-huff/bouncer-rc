@@ -33,17 +33,18 @@
 
 using namespace rapidjson;
 
-//typedef struct a1_policy_helper a1_policy_helper;
+typedef struct a1_policy_helper a1_policy_helper;
 
-/*struct a1_policy_helper{
+struct a1_policy_helper{
 
 	std::string operation;
 	std::string policy_type_id;
 	std::string policy_instance_id;
 	std::string handler_id;
 	std::string status;
-
-};*/
+    std::string payload;
+    int threshold;
+};
 
 
 #endif /* SRC_XAPP_FORMATS_A1MSG_A1_POLICY_HELPER_HPP_ */

@@ -25,6 +25,8 @@
 #include <cpprest/uri.h>
 #include <cpprest/json.h>
 
+#include "E2SM-RC-EventTrigger.h"
+
 using namespace utility;
 using namespace web;
 using namespace web::http;
@@ -80,8 +82,7 @@ void Xapp::startup(SubscriptionHandler &sub_ref) {
 	startup_subscribe_requests(); // throws std::exception
 
 	//read A1 policies
-	//startup_get_policies();
-	return;
+	startup_get_policies();
 }
 
 void Xapp::start_xapp_receiver(XappMsgHandler& mp_handler, int threads){
@@ -171,7 +172,7 @@ void Xapp::shutdown_delete_subscriptions() {
 	size_t i = 1;
 	for (auto subs : subscription_map) {
 		sleep(5);
-		mdclog_write(MDCLOG_INFO,"sending subscription delete request %lu out of %lu to meid %s", i, len, subs.first.c_str());
+		mdclog_write(MDCLOG_INFO,"sending subscription delete request %lu out of %lu to meid %s", i++, len, subs.first.c_str());
 		subscribe_delete_request(subs.second);
 	}
 }
@@ -238,6 +239,35 @@ jsonn Xapp::build_rc_subscription_request(string meid) {
 	port = config_ref->operator[](XappSettings::SettingName::BOUNCER_PORT);
 	int rmr_port = stoi(port);
 
+	unsigned char buf[4096];
+    ssize_t buflen = 4096;
+
+	e2sm_subscription rc_sub;
+
+    // RICeventTriggerDefinition
+    if (!rc_sub.encodeRCTriggerDefinitionFormat4(buf, &buflen)) {
+        mdclog_write(MDCLOG_ERR, "Unable to enconde E2SM_RC_EventTriggerDefinition to create subscription request. Reason: %s", rc_sub.get_error().c_str());
+    }
+
+	// E2SM_RC_EventTrigger_t *trigger = NULL;
+	// asn_dec_rval_t dval = asn_decode(nullptr, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2SM_RC_EventTrigger, (void**)&trigger, buf, buflen);
+
+    // converting to array of int as required by the json schema
+    std::vector<uint8_t> rc_trigger(buf, buf + buflen);
+
+	// E2SM_RC_EventTrigger_t *trigger_vec = NULL;
+	// asn_dec_rval_t dval2 = asn_decode(nullptr, ATS_ALIGNED_BASIC_PER, &asn_DEF_E2SM_RC_EventTrigger, (void**)&trigger_vec, rc_trigger.data(), rc_trigger.size());
+
+
+
+    buflen = 4096;
+    if (!rc_sub.encodeRCActionDefinitionFormat1(buf, &buflen)) {
+        mdclog_write(MDCLOG_ERR, "Unable to enconde E2SM_RC_ActionDefinition to create subscription request. Reason: %s", rc_sub.get_error().c_str());
+    }
+
+    // converting to array of int as required by the json schema
+    std::vector<uint8_t> rc_action(buf, buf + buflen);
+
 	jsonn jsonObject =
 		{
 			{"SubscriptionId",""},
@@ -247,17 +277,18 @@ jsonn Xapp::build_rc_subscription_request(string meid) {
 			{"SubscriptionDetails",
 				{
 					{
-						{"XappEventInstanceId",12345},{"EventTriggers",{2}},
+						{"XappEventInstanceId",12345},
+						{"EventTriggers",rc_trigger},
 						{"ActionToBeSetupList",
 							{
 								{
 									{"ActionID",1},
-									{"ActionType","insert"},
-									{"ActionDefinition",{3}},
+									{"ActionType","report"},
+									{"ActionDefinition",rc_action},
 									{"SubsequentAction",
 										{
 											{"SubsequentActionType","continue"},
-											{"TimeToWait","w10ms"}
+											{"TimeToWait","zero"}
 										}
 									}
 								}
@@ -367,8 +398,8 @@ void Xapp::startup_subscribe_requests(){
 		/* ============ Building and sending subscription requests ============ */
 		sleep(5);	// require to wait for registration to complete, and a pause between each subscription is also required
 
-		// jsonn jsonObject = build_rc_subscription_request(e2node.first);
-		jsonn jsonObject = build_kpm_subscription_request(e2node.first);
+		jsonn jsonObject = build_rc_subscription_request(e2node.first);
+		// jsonn jsonObject = build_kpm_subscription_request(e2node.first);
 		subscribe_request(e2node.first, jsonObject); // FIXME this can be called only after the xApp has been registered
 		/* ==================================================================== */
 

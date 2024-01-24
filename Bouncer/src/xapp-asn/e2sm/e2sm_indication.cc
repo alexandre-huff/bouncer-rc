@@ -179,13 +179,58 @@ bool e2sm_indication::get_fields(E2SM_Bouncer_IndicationHeader_t * ref_indictaio
 
 bool e2sm_indication::get_fields(E2SM_Bouncer_IndicationMessage_t * ref_indication_message, e2sm_indication_helper & helper){
 
-	  if (ref_indication_message == 0){
-	  	    error_string = "Invalid reference for Indication Message get fields";
-	  	    return false;
-	  	  }
-	  helper.message = ref_indication_message->choice.indicationMessage_Format1->indicationMsgParam.buf;
-	  helper.message_len = ref_indication_message->choice.indicationMessage_Format1->indicationMsgParam.size;
+  if (ref_indication_message == 0){
+        error_string = "Invalid reference for Indication Message get fields";
+        return false;
+      }
+  helper.message = ref_indication_message->choice.indicationMessage_Format1->indicationMsgParam.buf;
+  helper.message_len = ref_indication_message->choice.indicationMessage_Format1->indicationMsgParam.size;
 
-	  return true;
+  return true;
+}
+
+E2SM_RC_IndicationHeader_t *e2sm_indication::decode_e2sm_rc_indication_header(RICindicationHeader_t *e2ap_header) {
+  E2SM_RC_IndicationHeader_t *header = NULL;
+  asn_transfer_syntax syntax = ATS_ALIGNED_BASIC_PER;
+  asn_dec_rval_t rval = asn_decode(NULL, syntax, &asn_DEF_E2SM_RC_IndicationHeader, (void **)&header, e2ap_header->buf, e2ap_header->size);
+  if (rval.code != RC_OK) {
+    fprintf(stderr, "ERROR %s:%d unable to decode E2SM_RC_IndicationHeader_t from indication header\n", __FILE__, __LINE__);
+    return nullptr;
   }
 
+  char errbuf[512] = {0,};
+  size_t errlen = 512;
+  if (asn_check_constraints(&asn_DEF_E2SM_RC_IndicationHeader, header, errbuf, &errlen) != 0) {
+      fprintf(stderr, "Constraints for %s did not met. Reason: %s", asn_DEF_E2SM_RC_IndicationHeader.name, errbuf);
+      return nullptr;
+  }
+
+  if (mdclog_level_get() > MDCLOG_INFO) {
+      asn_fprint(stderr, &asn_DEF_E2SM_RC_IndicationHeader, header);
+  }
+
+  return header;
+}
+
+E2SM_RC_IndicationMessage_t *e2sm_indication::decode_e2sm_rc_indication_message(RICindicationMessage_t *e2ap_message) {
+  E2SM_RC_IndicationMessage_t *msg = NULL;
+  asn_transfer_syntax syntax = ATS_ALIGNED_BASIC_PER;
+  asn_dec_rval_t rval = asn_decode(NULL, syntax, &asn_DEF_E2SM_RC_IndicationMessage, (void **)&msg, e2ap_message->buf, e2ap_message->size);
+  if (rval.code != RC_OK) {
+    fprintf(stderr, "ERROR %s:%d unable to decode E2SM_RC_IndicationMessage_t from indication header\n", __FILE__, __LINE__);
+    return nullptr;
+  }
+
+  char errbuf[512] = {0,};
+  size_t errlen = 512;
+  if (asn_check_constraints(&asn_DEF_E2SM_RC_IndicationMessage, msg, errbuf, &errlen) != 0) {
+      fprintf(stderr, "Constraints for %s did not met. Reason: %s", asn_DEF_E2SM_RC_IndicationMessage.name, errbuf);
+      return nullptr;
+  }
+
+  if (mdclog_level_get() > MDCLOG_INFO) {
+      asn_fprint(stderr, &asn_DEF_E2SM_RC_IndicationMessage, msg);
+  }
+
+  return msg;
+}

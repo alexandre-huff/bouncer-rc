@@ -26,7 +26,7 @@
 
                     "rxMessages": ["RIC_SUB_RESP", "RIC_INDICATION","RIC_SUB_DEL_RESP"],
                     "txMessages": ["RIC_SUB_REQ","RIC_SUB_DEL_REQ"],
-                    "policies": [1],
+                    "policies": [20008],
                     "description": "rmr receive data port for Bouncer xApp"
                 },
                 {
@@ -43,7 +43,7 @@
             "numWorkers": 1,
             "txMessages": ["RIC_SUB_REQ","RIC_SUB_DEL_REQ"],
             "rxMessages": ["RIC_SUB_RESP", "RIC_INDICATION","RIC_SUB_DEL_RESP"],
-            "policies": [1]
+            "policies": [20008]
         },
         "http":{
                 "protPort": "tcp:8080"

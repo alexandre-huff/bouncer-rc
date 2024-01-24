@@ -16,8 +16,11 @@
 # ==================================================================================
 */
 
-#include "xapp.hpp"
 #include <mdclog/mdclog.h>
+
+#include "xapp.hpp"
+#include "metrics.hpp"
+#include "a1_mgmt.hpp"
 
 using namespace web;
 using namespace web::http;
@@ -72,6 +75,30 @@ int main(int argc, char *argv[]) {
 	// Register async signal handler to stop on startup errors received by REST calls
 	signal(SIGTERM, signalHandler);
 
+	//start listener threads and register message handlers.
+	int num_threads = std::stoi(config[XappSettings::SettingName::THREADS]);
+	if (num_threads > 1) {
+		mdclog_write(MDCLOG_WARN, "Using default number of threads = 1. Multithreading on xapp receiver is not supported yet.");
+	}
+	mdclog_write(MDCLOG_INFO, "Starting Listener Threads. Number of Workers = %d", num_threads);
+
+	std::unique_ptr<A1Handler> a1handler;
+	try {
+		a1handler = std::make_unique<A1Handler>();
+
+	} catch (std::exception &e) {
+		mdclog_write(MDCLOG_ERR, "Unable to startup xapp %s. Reason = %s",
+					config[XappSettings::SettingName::XAPP_ID].c_str(),  e.what());
+
+		exit(EXIT_FAILURE);
+	}
+
+	std::unique_ptr<XappMsgHandler> mp_handler = std::make_unique<XappMsgHandler>(config[XappSettings::SettingName::XAPP_ID], sub_handler, std::ref(*a1handler));
+
+	b_xapp->start_xapp_receiver(std::ref(*mp_handler), num_threads);
+
+	sleep(2);
+
 	//Startup E2 subscription
 	try {
 		b_xapp->startup(sub_handler);
@@ -84,20 +111,6 @@ int main(int argc, char *argv[]) {
 
 		exit(EXIT_FAILURE);
 	}
-
-	sleep(2);
-
-
-	//start listener threads and register message handlers.
-	int num_threads = std::stoi(config[XappSettings::SettingName::THREADS]);
-	if (num_threads > 1) {
-		mdclog_write(MDCLOG_WARN, "Using default number of threads = 1. Multithreading on xapp receiver is not supported yet.");
-	}
-	mdclog_write(MDCLOG_INFO, "Starting Listener Threads. Number of Workers = %d", num_threads);
-
-	std::unique_ptr<XappMsgHandler> mp_handler = std::make_unique<XappMsgHandler>(config[XappSettings::SettingName::XAPP_ID], sub_handler);
-
-	b_xapp->start_xapp_receiver(std::ref(*mp_handler), num_threads);
 
 	if (!sig_raised) {
 		signal(SIGTERM, NULL);	// unregister async signal handler

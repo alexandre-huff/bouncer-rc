@@ -26,6 +26,7 @@
 #include <vector>
 #include <sstream>
 #include <memory>
+#include <string>
 
 extern "C" {
 	#include "E2SM-RC-IndicationHeader.h"
@@ -33,6 +34,7 @@ extern "C" {
 	#include "E2SM-RC-IndicationMessage.h"
 	#include "E2SM-RC-CallProcessID.h"
 	#include "RICindicationHeader.h"
+	#include "PLMN-Identity.h"
 }
 
 typedef struct ranparam_helper ranparam_helper;
@@ -116,19 +118,6 @@ struct e2sm_control_helper {
 // 	UEID_t *ueid;
 // };
 
-class RCIndicationlHelper {
-	public:
 
-	E2SM_RC_IndicationHeader_t *decode_e2sm_rc_indication_header(RICindicationHeader_t *e2ap_header) {
-		E2SM_RC_IndicationHeader_t *header = NULL;
-		asn_transfer_syntax syntax = ATS_ALIGNED_BASIC_PER;
-		asn_dec_rval_t rval = asn_decode(NULL, syntax, &asn_DEF_E2SM_RC_IndicationHeader, (void **)&header, e2ap_header->buf, e2ap_header->size);
-		if (rval.code != RC_OK) {
-			fprintf(stderr, "ERROR %s:%d unable to decode UEID from indication header\n", __FILE__, __LINE__);
-			return nullptr;
-		}
-		return header;
-	}
-};
 
 #endif

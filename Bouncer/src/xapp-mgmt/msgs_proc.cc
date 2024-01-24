@@ -17,6 +17,24 @@
 */
 
 #include "msgs_proc.hpp"
+#include "e2sm_indication.hpp"
+#include "e2sm_helpers.hpp"
+#include "metrics.hpp"
+#include "utils.hpp"
+
+#include "E2SM-RC-IndicationHeader-Format1.h"
+#include "E2SM-RC-IndicationMessage-Format2.h"
+#include "E2SM-RC-IndicationMessage-Format2-Item.h"
+#include "E2SM-RC-IndicationMessage-Format2-RANParameter-Item.h"
+#include "UEID-GNB.h"
+#include "INTEGER.h"
+#include "RANParameter-ID.h"
+#include "RANParameter-ValueType.h"
+#include "RANParameter-ValueType-Choice-ElementFalse.h"
+#include "RANParameter-Value.h"
+#include "RANParameter-STRUCTURE.h"
+#include "RANParameter-STRUCTURE-Item.h"
+#include "RRC-State.h"
 
 
 bool XappMsgHandler::encode_subscription_delete_request(unsigned char* buffer, ssize_t *buf_len){
@@ -73,68 +91,127 @@ bool XappMsgHandler::decode_subscription_response(unsigned char* data_buf, size_
 
 }
 
-/*bool  XappMsgHandler::a1_policy_handler(char * message, int *message_len, a1_policy_helper &helper){
-
-  rapidjson::Document doc;
-  if (doc.Parse<kParseStopWhenDoneFlag>(message).HasParseError()){
-    mdclog_write(MDCLOG_ERR, "Error: %s, %d :: Could not decode A1 JSON message %s\n", __FILE__, __LINE__, message);
-    return false;
-  }
-
-  //Extract Operation
-  rapidjson::Pointer temp1("/operation");
-    rapidjson::Value * ref1 = temp1.Get(doc);
-    if (ref1 == NULL){
-      mdclog_write(MDCLOG_ERR, "Error : %s, %d:: Could not extract policy type id from %s\n", __FILE__, __LINE__, message);
-      return false;
+bool XappMsgHandler::a1_policy_handler(char *message, int *message_len, a1_policy_helper &helper){
+    if (!_ref_a1_handler->parse_a1_policy(message, helper)) {
+        mdclog_write(MDCLOG_ERR, "Unable to process A1 policy request. Reason: %s", _ref_a1_handler->error_string.c_str());
+        return false;
     }
 
-   helper.operation = ref1->GetString();
+    if (helper.policy_type_id == to_string(BOUNCER_POLICY_ID)) {
+        if (helper.operation == "CREATE") {
+            if (!_ref_a1_handler->parse_a1_payload(helper)) {
+                mdclog_write(MDCLOG_ERR, "Unable to process A1 policy request. Reason: %s", _ref_a1_handler->error_string.c_str());
+                return false;
+            }
 
-  // Extract policy id type
-  rapidjson::Pointer temp2("/policy_type_id");
-  rapidjson::Value * ref2 = temp2.Get(doc);
-  if (ref2 == NULL){
-    mdclog_write(MDCLOG_ERR, "Error : %s, %d:: Could not extract policy type id from %s\n", __FILE__, __LINE__, message);
-    return false;
-  }
-   //helper.policy_type_id = ref2->GetString();
-    helper.policy_type_id = to_string(ref2->GetInt());
+            mdclog_write(MDCLOG_INFO, "\n\nA1 policy request: handler_id=%s, operation=%s, policy_type_id=%s, policy_instance_id=%s, threshold=%d\n\n",
+                         helper.handler_id.c_str(),
+                         helper.operation.c_str(),
+                         helper.policy_type_id.c_str(),
+                         helper.policy_instance_id.c_str(),
+                         helper.threshold);
 
-    // Extract policy instance id
-    rapidjson::Pointer temp("/policy_instance_id");
-    rapidjson::Value * ref = temp.Get(doc);
-    if (ref == NULL){
-      mdclog_write(MDCLOG_ERR, "Error : %s, %d:: Could not extract policy type id from %s\n", __FILE__, __LINE__, message);
-      return false;
+            // TODO implement the logic for policy enforcement here
+
+
+            helper.status = "OK";
+
+        } else {
+            mdclog_write(MDCLOG_WARN, "A1 operation \"%s\" not implemented", helper.operation.c_str());
+            return false;
+        }
+
+        // Preparing response message to A1 Mediator
+        if (!_ref_a1_handler->serialize_a1_response(message, message_len, helper)) {
+            mdclog_write(MDCLOG_ERR, "Unable to serialize A1 reponse. Reason: %s", _ref_a1_handler->error_string.c_str());
+            return false;
+        }
+
+    } else {
+        mdclog_write(MDCLOG_ERR, "A1 policy type id %s not supported", helper.policy_type_id.c_str());
+        return false;
     }
-    helper.policy_instance_id = ref->GetString();
 
-    if (helper.policy_type_id == "1" && helper.operation == "CREATE"){
-    	helper.status = "OK";
-    	Document::AllocatorType& alloc = doc.GetAllocator();
+    return true;
+}
 
-    	Value handler_id;
-    	handler_id.SetString(helper.handler_id.c_str(), helper.handler_id.length(), alloc);
+/**
+ * Process the RAN parameter 17011 (Global gNB ID)
+ * Stores de
+*/
+bool XappMsgHandler::processRanParameter17011(std::string &gnodeb_id, RANParameter_ValueType_Choice_Structure_t *p17011) {
+	std::string gnbid;
+	std::string mcc;
+	std::string mnc;
 
-    	Value status;
-    	status.SetString(helper.status.c_str(), helper.status.length(), alloc);
+	for (int i = 0; i < p17011->ranParameter_Structure->sequence_of_ranParameters->list.count; i++ ) {
+		RANParameter_STRUCTURE_Item_t *p17011_item =
+			p17011->ranParameter_Structure->sequence_of_ranParameters->list.array[i];
+		switch (p17011_item->ranParameter_ID) {
+			case 17012: // PLMN Identity
+			{
+				OCTET_STRING_t *plmnid = &p17011_item->ranParameter_valueType->choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueOctS;
+				if (!decode_plmnid(plmnid, mcc, mnc)) {
+					mdclog_write(MDCLOG_ERR, "Unable to decode PLMN ID of RAN Parameter 17011 mcc=%s mnc=%s", mcc.c_str(), mnc.c_str());
+					return false;
+				}
+				break;
+			}
 
+			case 17013:
+			{
+				RANParameter_STRUCTURE_t *p17013 = p17011_item->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure;
+				for (int j = 0; j < p17013->sequence_of_ranParameters->list.count; j++) {
+					RANParameter_STRUCTURE_Item_t *item = p17013->sequence_of_ranParameters->list.array[j];
+					if (item->ranParameter_ID == 17014) { // gNB ID Structure
+						RANParameter_STRUCTURE_t *p17014 = item->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure;
+						if (p17014->sequence_of_ranParameters->list.count == 1) {
+							RANParameter_STRUCTURE_Item_t *gnb = p17014->sequence_of_ranParameters->list.array[0];
+							if (gnb->ranParameter_ID == 17015) { // gNB ID Element
+								BIT_STRING_t *gnb_bs = &gnb->ranParameter_valueType->choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueBitS;
+								if (!translateBitString(gnbid, gnb_bs)) {
+									mdclog_write(MDCLOG_ERR, "Unable to translate gNodeB ID to string");
+									return false;
+								}
+							}
 
-    	doc.AddMember("handler_id", handler_id, alloc);
-    	doc.AddMember("status",status, alloc);
-    	doc.RemoveMember("operation");
-    	StringBuffer buffer;
-    	Writer<StringBuffer> writer(buffer);
-    	doc.Accept(writer);
-    	strncpy(message,buffer.GetString(), buffer.GetLength());
-    	*message_len = buffer.GetLength();
-    	return true;
-    }
-    return false;
-}*/
+						} else {
+							mdclog_write(MDCLOG_ERR, "Expected 1 element in RAN Parameter %lu", item->ranParameter_ID);
+							return false;
+						}
 
-//For processing received messages.XappMsgHandler should mention if resend is required or not.
+					} else {
+						mdclog_write(MDCLOG_ERR, "RAN Parameter %lu not supported", item->ranParameter_ID);
+						return false;
+					}
+				}
+
+				break;
+			}
+
+			default:
+				mdclog_write(MDCLOG_WARN, "RAN parameter %lu not supported", p17011_item->ranParameter_ID);
+				return false;
+		}
+	}
+
+	if (mnc.length() == 2) {
+		gnodeb_id = mcc + mnc + "_" + gnbid;
+	} else {
+		gnodeb_id = mcc + mnc + gnbid;
+	}
+
+    return true;
+}
+
+XappMsgHandler::XappMsgHandler(std::string xid, SubscriptionHandler &subhandler, A1Handler &a1handler) {
+	xapp_id=xid;
+	_ref_sub_handler=&subhandler;
+	_ref_a1_handler=&a1handler;
+	prometheusMetrics = std::make_shared<PrometheusMetrics>();
+}
+
+// For processing received messages.XappMsgHandler should mention if resend is required or not.
 void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 {
 
@@ -231,6 +308,8 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 		{
 			mdclog_write(MDCLOG_DEBUG, "Decoding indication for msg = %d", message->mtype);
 
+			*resend = false;
+
 			ASN_STRUCT_RESET(asn_DEF_E2AP_PDU, e2pdu);
 			asn_transfer_syntax syntax;
 			syntax = ATS_ALIGNED_BASIC_PER;
@@ -239,116 +318,144 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 
 			auto rval = asn_decode(nullptr, syntax, &asn_DEF_E2AP_PDU, (void **)&e2pdu, message->payload, message->len);
 
-			if (rval.code == RC_OK)
-			{
+			if (rval.code == RC_OK) {
 				mdclog_write(MDCLOG_DEBUG, "rval.code = %d ", rval.code);
-			}
-			else
-			{
+
+			} else {
 				mdclog_write(MDCLOG_ERR, " rval.code = %d ", rval.code);
 				break;
 			}
 
-			if (mdclog_level_get() > MDCLOG_INFO)
+			// if (mdclog_level_get() > MDCLOG_INFO) / FIXME uncomment this
 				asn_fprint(stderr, &asn_DEF_E2AP_PDU, e2pdu);
 
-			ric_indication indication;
+			ric_indication e2ap_indication;
 			ric_indication_helper ind_helper;
 			string error_msg;
-			indication.get_fields(e2pdu->choice.initiatingMessage, ind_helper);
+			e2ap_indication.get_fields(e2pdu->choice.initiatingMessage, ind_helper);
 
-			uint8_t ctrl_header_buf[8192] = {0, };
-			ssize_t ctrl_header_buf_size = 8192;
-
-			UEID_t *ueid = ind_helper.get_ui_id();
-
-			e2sm_control e2sm_control;
-			bool ret_head = e2sm_control.encode_rc_control_header(ctrl_header_buf, &ctrl_header_buf_size, ueid);
-			ASN_STRUCT_FREE(asn_DEF_UEID, ueid);	// we have to release here to avoid memory leaks if encoding returns false
-			if (!ret_head) {
-				mdclog_write(MDCLOG_ERR, "%s", e2sm_control.get_error().c_str());
-				*resend = false;
+			e2sm_indication indication;
+			E2SM_RC_IndicationHeader_t *header = indication.decode_e2sm_rc_indication_header(&ind_helper.indication_header);
+			if (!header) {
+				mdclog_write(MDCLOG_ERR, "Unable to decode E2SM_RC_IndicationHeader");
+				break;
+			}
+			E2SM_RC_IndicationMessage_t *msg = indication.decode_e2sm_rc_indication_message(&ind_helper.indication_msg);
+			if (!msg) {
+				mdclog_write(MDCLOG_ERR, "Unable to decode E2SM_RC_IndicationMessage");
 				break;
 			}
 
-			uint8_t ctrl_msg_buf[8192] = {0, };
-			ssize_t ctrl_msg_buf_size = 8192;
-
-			bool ret_msg = e2sm_control.encode_rc_control_message(ctrl_msg_buf, &ctrl_msg_buf_size);
-			if (!ret_msg) {
-				mdclog_write(MDCLOG_ERR, "%s", e2sm_control.get_error().c_str());
-				*resend = false;
+			if (header->ric_indicationHeader_formats.present != E2SM_RC_IndicationHeader__ric_indicationHeader_formats_PR_indicationHeader_Format1) {
+				mdclog_write(MDCLOG_ERR, "Only E2SM RC Indication Header Format 1 is supported");
+				break;
+			}
+			if (msg->ric_indicationMessage_formats.present != E2SM_RC_IndicationMessage__ric_indicationMessage_formats_PR_indicationMessage_Format2) {
+				mdclog_write(MDCLOG_ERR, "Only E2SM RC Indication Message Format 2 is supported");
 				break;
 			}
 
-			// E2AP Control Helper
-			ric_control_helper helper;
-			helper.requestor_id = ind_helper.request_id.ricRequestorID;
-			helper.instance_id = ind_helper.request_id.ricInstanceID;
-			helper.func_id = ind_helper.func_id;
-			// Control Call Process ID
-			helper.call_process_id = ind_helper.call_process_id.buf;
-			helper.call_process_id_size = ind_helper.call_process_id.size;
-			// Control ACK
-			helper.control_ack = RICcontrolAckRequest_noAck; // for now we do not require ACK messages for control requests
-			// Control Header
-			helper.control_header = ctrl_header_buf;
-			helper.control_header_size = ctrl_header_buf_size;
-			// Control Message
-			helper.control_msg = ctrl_msg_buf;
-			helper.control_msg_size = ctrl_msg_buf_size;
+			E2SM_RC_IndicationHeader_Format1_t *fmt1 = header->ric_indicationHeader_formats.choice.indicationHeader_Format1;
+			if (fmt1)
+				mdclog_write(MDCLOG_DEBUG, "Event Trigger Condition ID %ld", *fmt1->ric_eventTriggerCondition_ID);
 
-			// E2AP buffer
-			uint8_t e2ap_buf[8192] = {0, };
-			ssize_t e2ap_buf_size = 8192;
+			E2SM_RC_IndicationMessage_Format2_t *fmt2 = msg->ric_indicationMessage_formats.choice.indicationMessage_Format2;
+			for (int i = 0; i < fmt2->ueParameter_List.list.count; i++) {
+				E2SM_RC_IndicationMessage_Format2_Item *item = fmt2->ueParameter_List.list.array[i];
 
-			ric_control_request control_req;
-			bool encoded = control_req.encode_e2ap_control_request(e2ap_buf, &e2ap_buf_size, helper);
-			if (encoded) {
-				message->mtype = RIC_CONTROL_REQ; // if we're here we are running and all is ok
-				message->sub_id = -1;
+				// ###### IMSI ######
+				UEID_GNB_t *ueid = item->ueID.choice.gNB_UEID;
+				long msin;
+				std::string mcc;
+				std::string mnc;
+				asn_INTEGER2long(&ueid->amf_UE_NGAP_ID, &msin);
 
-				int rmr_len = rmr_payload_size(message);
-				if (rmr_len < 0) {
-					mdclog_write(MDCLOG_ERR, "unable to get the rmr payload size for control request. Reason = %s", strerror(errno));
-					*resend = false;
+				if (!decode_plmnid(&ueid->guami.pLMNIdentity, mcc, mnc)) {
+					mdclog_write(MDCLOG_ERR, "Unable to decode PLMN_ID from %s", asn_DEF_E2SM_RC_IndicationMessage_Format2_Item.name);
 					break;
 				}
+				std::string imsi = mcc + mnc + std::to_string(msin);
+				std::string gnbid;
+				long rrc_state_changed_to;
+				long rsrp;
+				long rsrq;
+				long sinr;
 
-				if (e2ap_buf_size <= (ssize_t)rmr_len) {	// avoid compiler comparison complains
-					memcpy(message->payload, e2ap_buf, e2ap_buf_size);
-					message->len = e2ap_buf_size;
-					*resend = true;
+				// ##### RAN Parameters #####
+				for (int j = 0; j < item->ranP_List.list.count; j++) {
+					E2SM_RC_IndicationMessage_Format2_RANParameter_Item *ranp_item = item->ranP_List.list.array[j];
+					switch (ranp_item->ranParameter_ID) {
+						case 202:
+							rrc_state_changed_to = ranp_item->ranParameter_valueType.choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueInt;
+							break;
 
-				} else {
-					mdclog_write(MDCLOG_ERR, "E2AP Control Request encoded size %lu exceeds rmr payload size %d", e2ap_buf_size, rmr_len);
-					*resend = false;
+						case 12501:
+							rsrp = ranp_item->ranParameter_valueType.choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueInt;
+							break;
+
+						case 12502:
+							rsrq = ranp_item->ranParameter_valueType.choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueInt;
+							break;
+
+						case 12503:
+							sinr = ranp_item->ranParameter_valueType.choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueInt;
+							break;
+
+						case 17011:
+						{
+							RANParameter_ValueType_Choice_Structure_t *struct17011 = ranp_item->ranParameter_valueType.choice.ranP_Choice_Structure;
+							if (!processRanParameter17011(gnbid, struct17011)) {
+								gnbid = "unknown";
+								mdclog_write(MDCLOG_WARN, "Unable to decode RAN Parameter 17011 (Global gNB ID)");
+							}
+
+							break;
+						}
+
+						default:
+							mdclog_write(MDCLOG_WARN, "RAN Parameter ID %lu not supported", ranp_item->ranParameter_ID);
+					}
 				}
-			} else {
-				mdclog_write(MDCLOG_ERR, "E2AP Control Request encoding error. Reason = %s", control_req.get_error().c_str());
-				*resend = false;
+
+				// Prometheus metrics
+				ue_metrics_t &metrics = prometheusMetrics->get_ue_metrics_instance(imsi, gnbid);
+
+				int state;
+				if (rrc_state_changed_to == RRC_State_rrc_connected) {
+					state = 1;
+				} else if (rrc_state_changed_to == RRC_State_rrc_inactive) {
+					state = 0;
+				} else {
+					mdclog_write(MDCLOG_WARN, "Unexpexted RRC State %ld", rrc_state_changed_to);
+					state = -1;
+				}
+				metrics.rrc_state->Set(state);
+				metrics.rsrp->Set(rsrp);
+				metrics.rsrq->Set(rsrq);
+				metrics.sinr->Set(sinr);
+
 			}
 
-			if (mdclog_level_get() > MDCLOG_INFO)
-				fprintf(stderr, "end of RIC_INDICATION case\n\n");
-			// num++;
-			// mdclog_write(MDCLOG_INFO, "Number of Indications Received = %d", num);
+			ASN_STRUCT_FREE(asn_DEF_E2SM_RC_IndicationHeader, header);
+			ASN_STRUCT_FREE(asn_DEF_E2SM_RC_IndicationMessage, msg);
+
 			break;
 		}
 
-		/*case A1_POLICY_REQ:
-
-			mdclog_write(MDCLOG_INFO, "In Message Handler: Received A1_POLICY_REQ.");
+		case A1_POLICY_REQ:
+		{
+			mdclog_write(MDCLOG_INFO, "Received A1_POLICY_REQ");
+			a1_policy_helper helper;
 			helper.handler_id = xapp_id;
 
-			res = a1_policy_handler((char*)message->payload, &message->len, helper);
-			if(res)
-			{
+			bool res = a1_policy_handler((char*)message->payload, &message->len, helper);
+			if(res) {
 				message->mtype = A1_POLICY_RESP;        // if we're here we are running and all is ok
 				message->sub_id = -1;
 				*resend = true;
 			}
-			break;*/
+			break;
+		}
 
 		default:
 			mdclog_write(MDCLOG_ERR, "Error :: Unknown message type %d received from RMR", message->mtype);

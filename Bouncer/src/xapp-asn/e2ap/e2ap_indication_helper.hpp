@@ -55,7 +55,7 @@ struct ric_indication_helper{
   RICindicationHeader_t indication_header;
   RICindicationMessage_t indication_msg;
 
-  UEID_t *get_ui_id() {
+  UEID_t *get_ue_id() {
     E2SM_RC_IndicationHeader_t *header = (E2SM_RC_IndicationHeader_t *) calloc(1, sizeof(E2SM_RC_IndicationHeader_t));
     asn_transfer_syntax syntax = ATS_ALIGNED_BASIC_PER;
     asn_dec_rval_t rval = asn_decode(NULL, syntax, &asn_DEF_UEID, (void **)&header, indication_header.buf, indication_header.size);
