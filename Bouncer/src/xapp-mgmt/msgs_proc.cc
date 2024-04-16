@@ -326,7 +326,7 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 				break;
 			}
 
-			// if (mdclog_level_get() > MDCLOG_INFO) / FIXME uncomment this
+			if (mdclog_level_get() > MDCLOG_INFO)
 				asn_fprint(stderr, &asn_DEF_E2AP_PDU, e2pdu);
 
 			ric_indication e2ap_indication;
@@ -365,16 +365,22 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 
 				// ###### IMSI ######
 				UEID_GNB_t *ueid = item->ueID.choice.gNB_UEID;
-				long msin;
+				long msin_number;
 				std::string mcc;
 				std::string mnc;
-				asn_INTEGER2long(&ueid->amf_UE_NGAP_ID, &msin);
+				asn_INTEGER2long(&ueid->amf_UE_NGAP_ID, &msin_number);
 
 				if (!decode_plmnid(&ueid->guami.pLMNIdentity, mcc, mnc)) {
 					mdclog_write(MDCLOG_ERR, "Unable to decode PLMN_ID from %s", asn_DEF_E2SM_RC_IndicationMessage_Format2_Item.name);
 					break;
 				}
-				std::string imsi = mcc + mnc + std::to_string(msin);
+				std::string msin = std::to_string(msin_number);
+
+				// we need to pad extra characters between mnc and msin to have a total of 15 digits in the final imsi
+				int padding = 15 - 3 - mnc.length() - msin.length(); // MCC always has 3 digits
+				msin = msin.insert(0, padding, '0');  // we pad msin with zeroes to reach 15 digits in the final imsi
+
+				std::string imsi = mcc + mnc + msin;
 				std::string gnbid;
 				long rrc_state_changed_to;
 				long rsrp;
