@@ -21,6 +21,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <memory>
 
 #include <prometheus/family.h>
 #include <prometheus/exposer.h>
@@ -31,28 +32,40 @@ using namespace prometheus;
 
 // helper for prometheus metrics
 typedef struct {
-    std::string imsi;
-    std::string gnbid;
+    // std::string imsi;
+    // std::string gnbid;
     Gauge *rrc_state;
     Gauge *rsrp;
     Gauge *rsrq;
     Gauge *sinr;
-} ue_metrics_t;
+} prometheus_ue_metrics_t;
+
+typedef struct {
+    // std::string imsi;
+    std::unordered_map<std::string, prometheus_ue_metrics_t> metrics;  // key is gnbid
+} prometheus_ue_info_t;
+
+typedef struct {
+    bool primary_cell;
+    long rsrp;
+    long rsrq;
+    long sinr;
+    std::string nr_cgi;
+} raw_ue_metrics_t;
 
 /*
-    Builds the prometheus configuration and exposes its metrics on port 8080
+    Builds the prometheus configuration and exposes its metrics on port 9090
 */
 class PrometheusMetrics {
 public:
     PrometheusMetrics();
     ~PrometheusMetrics();
 
-    ue_metrics_t &get_ue_metrics_instance(std::string imsi, std::string gnbid);
-
+    prometheus_ue_metrics_t &get_ue_metrics_instance(std::string imsi, std::string gnbid);
+    void delete_ue_metrics_instance(std::string imsi);
 
 private:
-    ue_metrics_t create_ue_metrics_instance(std::string imsi, std::string gnbid);
-    void update_ue_metrics_gnb_label(ue_metrics_t &data, std::string gnbid);
+    prometheus_ue_metrics_t create_ue_metrics_instance(std::string imsi, std::string gnbid);
 
     std::shared_ptr<Registry> registry;
     std::shared_ptr<Exposer> exposer;
@@ -60,7 +73,7 @@ private:
     Family<Gauge> *gauge_rsrp;
     Family<Gauge> *gauge_rsrq;
     Family<Gauge> *gauge_sinr;
-    std::unordered_map<std::string, ue_metrics_t> metrics;
+    std::unordered_map<std::string, prometheus_ue_info_t> ues;  // key is imsi
 };
 
 

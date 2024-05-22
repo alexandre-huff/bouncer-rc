@@ -34,7 +34,9 @@
 #include "RANParameter-Value.h"
 #include "RANParameter-STRUCTURE.h"
 #include "RANParameter-STRUCTURE-Item.h"
+#include "RANParameter-LIST.h"
 #include "RRC-State.h"
+#include "NR-CGI.h"
 
 
 bool XappMsgHandler::encode_subscription_delete_request(unsigned char* buffer, ssize_t *buf_len){
@@ -137,7 +139,6 @@ bool XappMsgHandler::a1_policy_handler(char *message, int *message_len, a1_polic
 
 /**
  * Process the RAN parameter 17011 (Global gNB ID)
- * Stores de
 */
 bool XappMsgHandler::processRanParameter17011(std::string &gnodeb_id, RANParameter_ValueType_Choice_Structure_t *p17011) {
 	std::string gnbid;
@@ -200,6 +201,198 @@ bool XappMsgHandler::processRanParameter17011(std::string &gnodeb_id, RANParamet
 	} else {
 		gnodeb_id = mcc + mnc + gnbid;
 	}
+
+    return true;
+}
+
+bool XappMsgHandler::processRanParameter21503(RANParameter_ValueType_Choice_Structure_t *p21503, std::vector<raw_ue_metrics_t> &ue_metrics) {
+	raw_ue_metrics_t metrics;
+
+	RANParameter_STRUCTURE_Item_t *p21504 =
+		get_ran_parameter_structure_item(p21503->ranParameter_Structure, 21504, RANParameter_ValueType_PR_ranP_Choice_Structure);
+	if (p21504) {
+		std::string mcc;
+		std::string mnc;
+		std::string cellid_hex;
+		if (process_NR_Cell_data(p21504, mcc, mnc, cellid_hex, metrics.rsrp, metrics.rsrq, metrics.sinr)) {
+			if (mnc.length() == 3) {
+				metrics.nr_cgi = mcc + mnc + cellid_hex;
+			} else {	// two digits
+				metrics.nr_cgi = mcc + mnc + "_" + cellid_hex;
+			}
+
+			metrics.primary_cell = true;
+
+			ue_metrics.push_back(std::move(metrics));
+
+			return true;
+		} else {
+			mdclog_write(MDCLOG_ERR, "Unable to process NR Cell metrics in param tree: 21503, 21504");
+			return false;
+		}
+	}
+
+	mdclog_write(MDCLOG_ERR, "Unable to find the last RAN Param ID in param tree: 21503, 21504");
+
+	return false;
+}
+
+bool XappMsgHandler::processRanParameter21528(RANParameter_ValueType_Choice_List_t *p21528, std::vector<raw_ue_metrics_t> &ue_metrics) {
+	std::stringstream ss;
+
+	std::vector<RANParameter_STRUCTURE_t *> list_items = get_ran_parameter_list_items(p21528->ranParameter_List);
+
+	ss << "21528";
+	for (auto cell_item : list_items) {
+		ss << ", 21529";
+		RANParameter_STRUCTURE_Item_t *p21529 = get_ran_parameter_structure_item(cell_item, 21529, RANParameter_ValueType_PR_ranP_Choice_Structure);
+		if (!p21529) {
+			break;
+		}
+
+		ss << ", 21530";
+		RANParameter_STRUCTURE_Item_t *p21530 =
+			get_ran_parameter_structure_item(p21529->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure,
+											21530, RANParameter_ValueType_PR_ranP_Choice_Structure);
+		if (!p21530) {
+			break;
+		}
+
+		ss << ", 21531";
+		RANParameter_STRUCTURE_Item_t *p21531 =
+			get_ran_parameter_structure_item(p21530->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure,
+											21531, RANParameter_ValueType_PR_ranP_Choice_Structure);
+		if (!p21531) {
+			break;
+		}
+
+		raw_ue_metrics_t metrics;
+		std::string mcc;
+		std::string mnc;
+		std::string cellid_hex;
+		if (process_NR_Cell_data(p21531, mcc, mnc, cellid_hex, metrics.rsrp, metrics.rsrq, metrics.sinr)) {
+			if (mnc.length() == 3) {
+				metrics.nr_cgi = mcc + mnc + cellid_hex;
+			} else {	// two digits
+				metrics.nr_cgi = mcc + mnc + "_" + cellid_hex;
+			}
+
+			metrics.primary_cell = false;
+
+			ue_metrics.push_back(std::move(metrics));
+
+			return true;
+		} else {
+			mdclog_write(MDCLOG_ERR, "Unable to process NR Cell metrics in param tree: %s", ss.str().c_str());
+			return false;
+		}
+
+	}
+
+	mdclog_write(MDCLOG_ERR, "Unable to find the last RAN Param ID in param tree: %s", ss.str().c_str());
+
+	return false;
+}
+
+bool XappMsgHandler::process_NR_Cell_data(RANParameter_STRUCTURE_Item_t *nrcell, std::string &mcc, std::string &mnc,
+											std::string &cellid_hex, long &rsrp, long &rsrq, long &sinr) {
+	RANParameter_STRUCTURE_Item_t *p10001 =
+			get_ran_parameter_structure_item(nrcell->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure,
+											10001, RANParameter_ValueType_PR_ranP_Choice_ElementFalse);
+	if (p10001) {
+		OCTET_STRING_t *nrcgi_data = get_ran_parameter_value_data<OCTET_STRING_t>(
+			p10001->ranParameter_valueType->choice.ranP_Choice_ElementFalse->ranParameter_value, RANParameter_Value_PR_valueOctS);
+		if (!nrcgi_data) {
+			mdclog_write(MDCLOG_ERR, "Unable to get OCTET STRING data from RAN Param ID 10001");
+			return false;
+		}
+
+		NR_CGI_t *nrcgi = NULL;
+		asn_dec_rval_t rval = asn_decode(NULL, ATS_ALIGNED_BASIC_PER, &asn_DEF_NR_CGI, (void **)&nrcgi, nrcgi_data->buf, nrcgi_data->size);
+		if (rval.code != RC_OK) {
+			mdclog_write(MDCLOG_ERR, "Unable to decode NR_CGI from RAN Parameter ID 10001");
+			return false;
+		}
+
+		if (!decode_NR_CGI(nrcgi, mcc, mnc, cellid_hex)) {
+			mdclog_write(MDCLOG_ERR, "Unable to decode NR_CGI to MCC, MNC, and Cell Identity from RAN Parameter ID 10001");
+			ASN_STRUCT_FREE(asn_DEF_NR_CGI, nrcgi);
+			return false;
+		}
+		ASN_STRUCT_FREE(asn_DEF_NR_CGI, nrcgi);
+	}
+
+	RANParameter_STRUCTURE_Item_t *p10101 =
+			get_ran_parameter_structure_item(nrcell->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure,
+											10101, RANParameter_ValueType_PR_ranP_Choice_Structure);
+	if (!p10101) {
+		mdclog_write(MDCLOG_ERR, "Unable to get RAN Param ID 10101 from NR Cell");
+		return false;
+	}
+
+	RANParameter_STRUCTURE_Item_t *p10102 =
+			get_ran_parameter_structure_item(p10101->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure,
+											10102, RANParameter_ValueType_PR_ranP_Choice_Structure);
+	if (!p10102) {
+		mdclog_write(MDCLOG_ERR, "Unable to get RAN Param ID 10102 from NR Cell");
+		return false;
+	}
+
+	RANParameter_STRUCTURE_Item_t *p10106 =
+			get_ran_parameter_structure_item(p10102->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure,
+											10106, RANParameter_ValueType_PR_ranP_Choice_Structure);
+	if (!p10106) {
+		mdclog_write(MDCLOG_ERR, "Unable to get RAN Param ID 10106 from NR Cell");
+		return false;
+	}
+
+	// RRC Signal Measurements (RSRP)
+	RANParameter_STRUCTURE_Item_t *p12501 =
+			get_ran_parameter_structure_item(p10106->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure,
+											12501, RANParameter_ValueType_PR_ranP_Choice_ElementFalse);
+	if (!p12501) {
+		mdclog_write(MDCLOG_ERR, "Unable to get RAN Param ID 12501 from RRC Signal Measurements");
+		return false;
+	}
+	long *rsrp_ptr = get_ran_parameter_value_data<long>(
+		p12501->ranParameter_valueType->choice.ranP_Choice_ElementFalse->ranParameter_value, RANParameter_Value_PR_valueInt);
+	if (!rsrp_ptr) {
+		mdclog_write(MDCLOG_ERR, "Unable to get RSRP data from RAN Param ID 12501");
+		return false;
+	}
+	rsrp = *rsrp_ptr;
+
+	// RRC Signal Measurements (RSRQ)
+	RANParameter_STRUCTURE_Item_t *p12502 =
+			get_ran_parameter_structure_item(p10106->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure,
+											12502, RANParameter_ValueType_PR_ranP_Choice_ElementFalse);
+	if (!p12502) {
+		mdclog_write(MDCLOG_ERR, "Unable to get RAN Param ID 12502 from RRC Signal Measurements");
+		return false;
+	}
+	long *rsrq_ptr = get_ran_parameter_value_data<long>(
+		p12502->ranParameter_valueType->choice.ranP_Choice_ElementFalse->ranParameter_value, RANParameter_Value_PR_valueInt);
+	if (!rsrq_ptr) {
+		mdclog_write(MDCLOG_ERR, "Unable to get RSRQ data from RAN Param ID 12502");
+		return false;
+	}
+	rsrq = *rsrq_ptr;
+
+	// RRC Signal Measurements (SINR)
+	RANParameter_STRUCTURE_Item_t *p12503 =
+			get_ran_parameter_structure_item(p10106->ranParameter_valueType->choice.ranP_Choice_Structure->ranParameter_Structure,
+											12503, RANParameter_ValueType_PR_ranP_Choice_ElementFalse);
+	if (!p12503) {
+		mdclog_write(MDCLOG_ERR, "Unable to get RAN Param ID 12503 from RRC Signal Measurements");
+		return false;
+	}
+	long *sinr_ptr = get_ran_parameter_value_data<long>(
+		p12503->ranParameter_valueType->choice.ranP_Choice_ElementFalse->ranParameter_value, RANParameter_Value_PR_valueInt);
+	if (!sinr_ptr) {
+		mdclog_write(MDCLOG_ERR, "Unable to get SINR data from RAN Param ID 12503");
+		return false;
+	}
+	sinr = *sinr_ptr;
 
     return true;
 }
@@ -381,11 +574,9 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 				msin = msin.insert(0, padding, '0');  // we pad msin with zeroes to reach 15 digits in the final imsi
 
 				std::string imsi = mcc + mnc + msin;
-				std::string gnbid;
-				long rrc_state_changed_to;
-				long rsrp;
-				long rsrq;
-				long sinr;
+				long rrc_state_changed_to = -1;	// set to ERROR to force that rrc state will be CONNECTED or DISCONNECTED
+				std::vector<raw_ue_metrics_t> raw_metrics;
+				bool report_ok = true;
 
 				// ##### RAN Parameters #####
 				for (int j = 0; j < item->ranP_List.list.count; j++) {
@@ -395,50 +586,62 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 							rrc_state_changed_to = ranp_item->ranParameter_valueType.choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueInt;
 							break;
 
-						case 12501:
-							rsrp = ranp_item->ranParameter_valueType.choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueInt;
-							break;
-
-						case 12502:
-							rsrq = ranp_item->ranParameter_valueType.choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueInt;
-							break;
-
-						case 12503:
-							sinr = ranp_item->ranParameter_valueType.choice.ranP_Choice_ElementFalse->ranParameter_value->choice.valueInt;
-							break;
-
-						case 17011:
-						{
-							RANParameter_ValueType_Choice_Structure_t *struct17011 = ranp_item->ranParameter_valueType.choice.ranP_Choice_Structure;
-							if (!processRanParameter17011(gnbid, struct17011)) {
-								gnbid = "unknown";
-								mdclog_write(MDCLOG_WARN, "Unable to decode RAN Parameter 17011 (Global gNB ID)");
+						case 21503:
+							if (!processRanParameter21503(ranp_item->ranParameter_valueType.choice.ranP_Choice_Structure, raw_metrics)) {
+								mdclog_write(MDCLOG_ERR, "Unable to process CHOICE Primary Cell of MCG for UE %s", imsi.c_str());
+								report_ok = false;
 							}
-
 							break;
-						}
+
+						case 21528:
+							if (!processRanParameter21528(ranp_item->ranParameter_valueType.choice.ranP_Choice_List, raw_metrics)) {
+								mdclog_write(MDCLOG_ERR, "Unable to process CHOICE Primary Cell of MCG for UE %s", imsi.c_str());
+								report_ok = false;
+							}
+							break;
+
+						// case 17011:	// actually, the correct parameter tree should start with 21501 to process gNB ID data from UE Context
+						// {
+						// 	RANParameter_ValueType_Choice_Structure_t *struct17011 = ranp_item->ranParameter_valueType.choice.ranP_Choice_Structure;
+						// 	if (!processRanParameter17011(gnbid, struct17011)) {
+						// 		gnbid = "unknown";
+						// 		mdclog_write(MDCLOG_WARN, "Unable to decode RAN Parameter 17011 (Global gNB ID)");
+						// 	}
+
+						// 	break;
+						// }
 
 						default:
 							mdclog_write(MDCLOG_WARN, "RAN Parameter ID %lu not supported", ranp_item->ranParameter_ID);
+							report_ok = false;
 					}
 				}
 
-				// Prometheus metrics
-				ue_metrics_t &metrics = prometheusMetrics->get_ue_metrics_instance(imsi, gnbid);
+				if (report_ok) {
 
-				int state;
-				if (rrc_state_changed_to == RRC_State_rrc_connected) {
-					state = 1;
-				} else if (rrc_state_changed_to == RRC_State_rrc_inactive) {
-					state = 0;
-				} else {
-					mdclog_write(MDCLOG_WARN, "Unexpexted RRC State %ld", rrc_state_changed_to);
-					state = -1;
+					if (rrc_state_changed_to == RRC_State_rrc_connected) {	// CONNECTED
+
+						for (auto &data : raw_metrics) {
+							// Prometheus metrics
+							prometheus_ue_metrics_t &metrics = prometheusMetrics->get_ue_metrics_instance(imsi, data.nr_cgi);
+							if (data.primary_cell) {
+								metrics.rrc_state->Set(1);
+							} else {
+								metrics.rrc_state->Set(0);
+							}
+							metrics.rsrp->Set(data.rsrp);
+							metrics.rsrq->Set(data.rsrq);
+							metrics.sinr->Set(data.sinr);
+						}
+
+					} else if (rrc_state_changed_to == RRC_State_rrc_inactive) {	// DISCONNECTED
+						prometheusMetrics->delete_ue_metrics_instance(imsi);
+
+					} else {
+						mdclog_write(MDCLOG_ERR, "Unexpected RRC State %ld, nothing done", rrc_state_changed_to);
+					}
+
 				}
-				metrics.rrc_state->Set(state);
-				metrics.rsrp->Set(rsrp);
-				metrics.rsrq->Set(rsrq);
-				metrics.sinr->Set(sinr);
 
 			}
 

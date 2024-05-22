@@ -54,37 +54,77 @@ PrometheusMetrics::PrometheusMetrics() {
 }
 
 PrometheusMetrics::~PrometheusMetrics() {
-    for (auto it : metrics) {
-        ue_metrics_t &data = it.second;
-        gauge_rrc_state->Remove(data.rrc_state);
-        gauge_rrc_state->Remove(data.rsrp);
-        gauge_rrc_state->Remove(data.rsrq);
-        gauge_rrc_state->Remove(data.sinr);
+    for (auto it : ues) {
+        prometheus_ue_info_t &ue_data = it.second;
+        for (auto it_data : ue_data.metrics) {
+            prometheus_ue_metrics_t &data = it_data.second;
+            gauge_rrc_state->Remove(data.rrc_state);
+            gauge_rrc_state->Remove(data.rsrp);
+            gauge_rrc_state->Remove(data.rsrq);
+            gauge_rrc_state->Remove(data.sinr);
+        }
     }
 }
 
-ue_metrics_t& PrometheusMetrics::get_ue_metrics_instance(std::string imsi, std::string gnbid) {
-    const auto &it = metrics.find(imsi);
-    if (it == metrics.end()) {  // if not present we add a new entry
-        ue_metrics_t data = create_ue_metrics_instance(imsi, gnbid);
-        metrics.emplace(imsi, std::move(data));
-        return metrics.at(imsi);
+prometheus_ue_metrics_t& PrometheusMetrics::get_ue_metrics_instance(std::string imsi, std::string gnbid) {
+    const auto &it_map = ues.find(imsi);    // fetch ue info
+    if (it_map != ues.end()) {
+        // fetch metrics by gnb
+        const auto &it_metrics = it_map->second.metrics.find(gnbid);
+
+        if (it_metrics != it_map->second.metrics.end()) {   // already there
+            return it_metrics->second;
+
+        } else {    // create a new metric per gnb
+            prometheus_ue_metrics_t data = create_ue_metrics_instance(imsi, gnbid);
+            it_map->second.metrics.emplace(gnbid, std::move(data));
+
+            return it_map->second.metrics.at(gnbid);
+        }
+
+    } else {    // if not present we add a new entry
+        prometheus_ue_metrics_t data = create_ue_metrics_instance(imsi, gnbid);
+
+        prometheus_ue_info_t ue_info;
+        ue_info.metrics.emplace(gnbid, std::move(data));
+
+        auto &ret = ue_info.metrics.at(gnbid);
+
+        ues.emplace(imsi, std::move(ue_info));
+
+        return ret;
     }
 
-    if (it->second.gnbid.compare(gnbid) != 0) { // if ue has changed its gNodeB connection
-        ue_metrics_t new_data = create_ue_metrics_instance(imsi, gnbid);
-        metrics.erase(it);
-        metrics.emplace(imsi, std::move(new_data));
-        return metrics.at(imsi);
-    }
-
-    return it->second;
 }
 
-ue_metrics_t PrometheusMetrics::create_ue_metrics_instance(std::string imsi, std::string gnbid) {
-    ue_metrics_t data;
-    data.imsi = imsi;
-    data.gnbid = gnbid;
+void PrometheusMetrics::delete_ue_metrics_instance(std::string imsi) {
+    const auto &it = ues.find(imsi);
+    if (it != ues.end()) {
+        std::vector<std::string> nrcgi_list;
+
+        prometheus_ue_info_t &ue_info = it->second;
+
+        for (auto &ue_metrics : ue_info.metrics) {
+            prometheus_ue_metrics_t &data = ue_metrics.second;
+
+            gauge_rrc_state->Remove(data.rrc_state);
+            gauge_rsrp->Remove(data.rsrp);
+            gauge_rsrq->Remove(data.rsrq);
+            gauge_sinr->Remove(data.sinr);
+
+            nrcgi_list.emplace_back(ue_metrics.first);
+        }
+
+        for (auto &cell : nrcgi_list) {
+            ue_info.metrics.erase(cell);
+        }
+
+        ues.erase(imsi);
+    }
+}
+
+prometheus_ue_metrics_t PrometheusMetrics::create_ue_metrics_instance(std::string imsi, std::string gnbid) {
+    prometheus_ue_metrics_t data;
 
     data.rrc_state = &gauge_rrc_state->Add({
         {"imsi", imsi},
@@ -107,28 +147,4 @@ ue_metrics_t PrometheusMetrics::create_ue_metrics_instance(std::string imsi, std
     }, 0.0);
 
     return data;
-}
-
-void PrometheusMetrics::update_ue_metrics_gnb_label(ue_metrics_t& data, std::string gnbid) {
-    data.gnbid = gnbid;
-
-    data.rrc_state = &gauge_rrc_state->Add({
-        {"imsi", data.imsi},
-        {"gnbid", gnbid}
-    }, 0.0);
-
-    data.rsrp = &gauge_rsrp->Add({
-        {"imsi", data.imsi},
-        {"gnbid", gnbid}
-    }, 0.0);
-
-    data.rsrq = &gauge_rsrq->Add({
-        {"imsi", data.imsi},
-        {"gnbid", gnbid}
-    }, 0.0);
-
-    data.sinr = &gauge_sinr->Add({
-        {"imsi", data.imsi},
-        {"gnbid", gnbid}
-    }, 0.0);
 }

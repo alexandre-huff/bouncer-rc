@@ -29,6 +29,12 @@
 #include "E2SM-RC-ActionDefinition.h"
 #include "E2SM-RC-ActionDefinition-Format1.h"
 #include "E2SM-RC-ActionDefinition-Format1-Item.h"
+#include "RANParameter-Definition.h"
+#include "RANParameter-Definition-Choice.h"
+#include "RANParameter-Definition-Choice-LIST.h"
+#include "RANParameter-Definition-Choice-LIST-Item.h"
+#include "RANParameter-Definition-Choice-STRUCTURE.h"
+#include "RANParameter-Definition-Choice-STRUCTURE-Item.h"
 
 
  //initialize
@@ -228,6 +234,40 @@ bool e2sm_subscription::encodeRCTriggerDefinitionFormat4(unsigned char *buffer, 
   return true;
 }
 
+template<typename T>
+T *build_ran_parameter_structure_item(RANParameter_ID_t param_id, std::string param_name) {
+  T *item = (T *) calloc(1, sizeof(T));
+  item->ranParameter_ID = param_id;
+  OCTET_STRING_fromString(&item->ranParameter_name, param_name.c_str());
+  return item;
+}
+
+RANParameter_Definition_t *e2sm_subscription::build_ran_parameter_definition(RANParameter_Definition_Choice_PR choice) {
+  RANParameter_Definition_t *def = (RANParameter_Definition_t *) calloc(1, sizeof(RANParameter_Definition_t));
+  def->ranParameter_Definition_Choice = (RANParameter_Definition_Choice_t *) calloc(1, sizeof(RANParameter_Definition_Choice_t));
+
+  switch (choice) {
+    case RANParameter_Definition_Choice_PR_choiceSTRUCTURE:
+      def->ranParameter_Definition_Choice->present = RANParameter_Definition_Choice_PR_choiceSTRUCTURE;
+      def->ranParameter_Definition_Choice->choice.choiceSTRUCTURE =
+          (RANParameter_Definition_Choice_STRUCTURE_t *) calloc(1, sizeof(RANParameter_Definition_Choice_STRUCTURE_t));
+      break;
+
+    case RANParameter_Definition_Choice_PR_choiceLIST:
+      def->ranParameter_Definition_Choice->present = RANParameter_Definition_Choice_PR_choiceLIST;
+      def->ranParameter_Definition_Choice->choice.choiceLIST =
+          (RANParameter_Definition_Choice_LIST_t *) calloc(1, sizeof(RANParameter_Definition_Choice_LIST_t));
+      break;
+
+    default:
+      error_string = "RANParameter_Definition_Choice_PR_NOTHING not supported";
+      ASN_STRUCT_FREE(asn_DEF_RANParameter_Definition, def);
+      return nullptr;
+  }
+
+  return def;
+}
+
 bool e2sm_subscription::encodeRCActionDefinitionFormat1(unsigned char *buffer, ssize_t *buflen) {
   std::stringstream ss;
 
@@ -243,25 +283,129 @@ bool e2sm_subscription::encodeRCActionDefinitionFormat1(unsigned char *buffer, s
   action->ric_actionDefinition_formats.choice.actionDefinition_Format1 = (E2SM_RC_ActionDefinition_Format1_t *) calloc(1, sizeof(E2SM_RC_ActionDefinition_Format1_t));
   E2SM_RC_ActionDefinition_Format1_t *fmt1 = action->ric_actionDefinition_formats.choice.actionDefinition_Format1;
 
-  E2SM_RC_ActionDefinition_Format1_Item_t *item1 = (E2SM_RC_ActionDefinition_Format1_Item_t *) calloc(1, sizeof(E2SM_RC_ActionDefinition_Format1_Item_t));
-  item1->ranParameter_ID = 202; // "RRC State Changed To" as per 8.2.4 in E2SM-RC-R003-v03.00
-  ASN_SEQUENCE_ADD(&fmt1->ranP_ToBeReported_List.list, item1);
+  // "RRC State Changed To" as per 8.2.4 in E2SM-RC-R003-v03.00
+  E2SM_RC_ActionDefinition_Format1_Item_t *p202 = (E2SM_RC_ActionDefinition_Format1_Item_t *) calloc(1, sizeof(E2SM_RC_ActionDefinition_Format1_Item_t));
+  p202->ranParameter_ID = 202;
+  ASN_SEQUENCE_ADD(&fmt1->ranP_ToBeReported_List.list, p202);
 
-  E2SM_RC_ActionDefinition_Format1_Item_t *item2 = (E2SM_RC_ActionDefinition_Format1_Item_t *) calloc(1, sizeof(E2SM_RC_ActionDefinition_Format1_Item_t));
-  item2->ranParameter_ID = 12501; // RSRP as per 8.1.1.3 in E2SM-RC-R003-v03.00
-  ASN_SEQUENCE_ADD(&fmt1->ranP_ToBeReported_List.list, item2);
+  // CHOICE Primary Cell of MCG as per 8.1.1.17 in E2SM-RC-R003-v03.00
+  E2SM_RC_ActionDefinition_Format1_Item_t *p21503 = (E2SM_RC_ActionDefinition_Format1_Item_t *) calloc(1, sizeof(E2SM_RC_ActionDefinition_Format1_Item_t));
+  p21503->ranParameter_ID = 21503;
+  p21503->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceSTRUCTURE);
 
-  E2SM_RC_ActionDefinition_Format1_Item_t *item3 = (E2SM_RC_ActionDefinition_Format1_Item_t *) calloc(1, sizeof(E2SM_RC_ActionDefinition_Format1_Item_t));
-  item3->ranParameter_ID = 12502; // RSRQ as per 8.1.1.3 in E2SM-RC-R003-v03.00
-  ASN_SEQUENCE_ADD(&fmt1->ranP_ToBeReported_List.list, item3);
+  // NR Cell as per 8.1.1.17 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *p21504 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(21504, "NR Cell");
+  p21504->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceSTRUCTURE);
 
-  E2SM_RC_ActionDefinition_Format1_Item_t *item4 = (E2SM_RC_ActionDefinition_Format1_Item_t *) calloc(1, sizeof(E2SM_RC_ActionDefinition_Format1_Item_t));
-  item4->ranParameter_ID = 12503; // SINR as per 8.1.1.3 in E2SM-RC-R003-v03.00
-  ASN_SEQUENCE_ADD(&fmt1->ranP_ToBeReported_List.list, item4);
+  // NR CGI as per 8.1.1.1 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *p10001 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(10001, "NR CGI");
 
-  E2SM_RC_ActionDefinition_Format1_Item_t *item5 = (E2SM_RC_ActionDefinition_Format1_Item_t *) calloc(1, sizeof(E2SM_RC_ActionDefinition_Format1_Item_t));
-  item5->ranParameter_ID = 17011; // Global gNB ID Structure as per 8.1.1.11 in E2SM-RC-R003-v03.00
-  ASN_SEQUENCE_ADD(&fmt1->ranP_ToBeReported_List.list, item5);
+  // Reported NR RRC Measurements as per 8.1.1.1 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *p10101 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(10101, "Reported NR RRC Measurements");
+  p10101->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceSTRUCTURE);
+
+  // Cell Results as per 8.1.1.1 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *p10102 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(10102, "Cell Results");
+  p10102->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceSTRUCTURE);
+
+  // CSI-RS Results as per 8.1.1.1 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *p10106 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(10106, "CSI-RS Results");
+  p10106->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceSTRUCTURE);
+
+  // RSRP as per 8.1.1.3 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *p12501 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(12501, "RSRP");
+
+  // RSRQ as per 8.1.1.3 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *p12502 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(12502, "RSRQ");
+
+  // SINR as per 8.1.1.3 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *p12503 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(12503, "SINR");
+
+  ASN_SEQUENCE_ADD(&fmt1->ranP_ToBeReported_List.list, p21503);
+  ASN_SEQUENCE_ADD(&p21503->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, p21504);
+  ASN_SEQUENCE_ADD(&p21504->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, p10001);
+  ASN_SEQUENCE_ADD(&p21504->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, p10101);
+  ASN_SEQUENCE_ADD(&p10101->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, p10102);
+  ASN_SEQUENCE_ADD(&p10102->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, p10106);
+  ASN_SEQUENCE_ADD(&p10106->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, p12501);
+  ASN_SEQUENCE_ADD(&p10106->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, p12502);
+  ASN_SEQUENCE_ADD(&p10106->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, p12503);
+
+  // List of Neighbor cells as per 8.1.1.17 in E2SM-RC-R003-v03.00
+  E2SM_RC_ActionDefinition_Format1_Item_t *p21528 = (E2SM_RC_ActionDefinition_Format1_Item_t *) calloc(1, sizeof(E2SM_RC_ActionDefinition_Format1_Item_t));
+  p21528->ranParameter_ID = 21528;
+  p21528->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceLIST);
+
+  // Neighbor Cell Item as per 8.1.1.17 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_LIST_Item_t *p21529 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_LIST_Item_t>(21529, "Neighbor Cell Item");
+  p21529->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceSTRUCTURE);
+
+  // CHOICE Neighbor Cell as per 8.1.1.17 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *p21530 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(21530, "CHOICE Neighbor Cell");
+  p21530->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceSTRUCTURE);
+
+  // NR Cell as per 8.1.1.17 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *p21531 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(21531, "NR Cell");
+  p21531->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceSTRUCTURE);
+
+   // NR CGI as per 8.1.1.1 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *neighbor10001 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(10001, "NR CGI");
+
+  // Reported NR RRC Measurements as per 8.1.1.1 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *neighbor10101 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(10101, "Reported NR RRC Measurements");
+  neighbor10101->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceSTRUCTURE);
+
+  // Cell Results as per 8.1.1.1 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *neighbor10102 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(10102, "Cell Results");
+  neighbor10102->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceSTRUCTURE);
+
+  // CSI-RS Results as per 8.1.1.1 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *neighbor10106 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(10106, "CSI-RS Results");
+  neighbor10106->ranParameter_Definition = build_ran_parameter_definition(RANParameter_Definition_Choice_PR_choiceSTRUCTURE);
+
+  // RSRP as per 8.1.1.3 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *neighbor12501 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(12501, "RSRP");
+
+  // RSRQ as per 8.1.1.3 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *neighbor12502 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(12502, "RSRQ");
+
+  // SINR as per 8.1.1.3 in E2SM-RC-R003-v03.00
+  RANParameter_Definition_Choice_STRUCTURE_Item_t *neighbor12503 =
+      build_ran_parameter_structure_item<RANParameter_Definition_Choice_STRUCTURE_Item_t>(12503, "SINR");
+
+  ASN_SEQUENCE_ADD(&fmt1->ranP_ToBeReported_List.list, p21528);
+  ASN_SEQUENCE_ADD(&p21528->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceLIST->ranParameter_List.list, p21529);
+  ASN_SEQUENCE_ADD(&p21529->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, p21530);
+  ASN_SEQUENCE_ADD(&p21530->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, p21531);
+  ASN_SEQUENCE_ADD(&p21531->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, neighbor10001);
+  ASN_SEQUENCE_ADD(&p21531->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, neighbor10101);
+  ASN_SEQUENCE_ADD(&neighbor10101->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, neighbor10102);
+  ASN_SEQUENCE_ADD(&neighbor10102->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, neighbor10106);
+  ASN_SEQUENCE_ADD(&neighbor10106->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, neighbor12501);
+  ASN_SEQUENCE_ADD(&neighbor10106->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, neighbor12502);
+  ASN_SEQUENCE_ADD(&neighbor10106->ranParameter_Definition->ranParameter_Definition_Choice->choice.choiceSTRUCTURE->ranParameter_STRUCTURE.list, neighbor12503);
+
+  // needs to subscribe to params 21501, 17001, 17010, 17011 to allow E2Sim report E2 Node data
+  // E2SM_RC_ActionDefinition_Format1_Item_t *p17011 = (E2SM_RC_ActionDefinition_Format1_Item_t *) calloc(1, sizeof(E2SM_RC_ActionDefinition_Format1_Item_t));
+  // p17011->ranParameter_ID = 17011; // Global gNB ID Structure as per 8.1.1.11 in E2SM-RC-R003-v03.00
+  // ASN_SEQUENCE_ADD(&fmt1->ranP_ToBeReported_List.list, p17011);
 
   char errbuf[512] = {0,};
   size_t errlen = 512;

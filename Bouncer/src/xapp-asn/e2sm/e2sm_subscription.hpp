@@ -33,6 +33,8 @@
 #include <E2SM-Bouncer-ActionDefinition-Format1.h>
 #include <B-TriggerNature.h>
 #include <RANparameter-Item.h>
+#include <RANParameter-Definition.h>
+#include <RANParameter-Definition-Choice.h>
 
 /* builder class for E2SM event trigger definition */
 
@@ -53,6 +55,8 @@ public:
   std::string  get_error (void) const {return error_string ;};
 
 private:
+
+  RANParameter_Definition_t *build_ran_parameter_definition(RANParameter_Definition_Choice_PR choice);
 
   E2SM_Bouncer_EventTriggerDefinition_t * event_trigger; // used for encoding
   E2SM_Bouncer_ActionDefinition_t* action_defn;

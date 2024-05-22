@@ -45,6 +45,8 @@
 #include "E2SM-RC-ControlMessage-Format1-Item.h"
 #include "E2SM-RC-IndicationMessage-Format5-Item.h"
 #include "RANParameter-ValueType-Choice-Structure.h"
+#include "RANParameter-ValueType-Choice-List.h"
+#include "RANParameter-STRUCTURE-Item.h"
 
 #define MAX_RMR_RECV_SIZE 2<<15
 
@@ -57,6 +59,11 @@ private:
 	shared_ptr<PrometheusMetrics> prometheusMetrics;
 
 	bool processRanParameter17011(std::string &gnodeb_id, RANParameter_ValueType_Choice_Structure_t *p17011);
+	bool processRanParameter21503(RANParameter_ValueType_Choice_Structure_t *p21503, std::vector<raw_ue_metrics_t> &ue_metrics);
+	bool processRanParameter21528(RANParameter_ValueType_Choice_List_t *p21528, std::vector<raw_ue_metrics_t> &ue_metrics);
+	bool process_NR_Cell_data(RANParameter_STRUCTURE_Item_t *nrcell, std::string &mcc, std::string &mnc,
+								std::string &cellid_hex, long &rsrp, long &rsrq, long &sinr);
+
 public:
 	//constructor for xapp_id.
 	 XappMsgHandler(std::string xid){xapp_id=xid; _ref_sub_handler=NULL;};
