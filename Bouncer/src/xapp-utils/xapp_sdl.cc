@@ -23,7 +23,7 @@
  *  Created on: Mar, 2020
  *  Author: Shraboni Jana
  */
-#include "xapp_sdl.hpp"
+// #include "xapp_sdl.hpp"
 /*need to work on the SDL FLow. Currently data hardcoded.
 An xApp can use the SDL for two things:
 - persisting state for itself (in case it fails and recovers)

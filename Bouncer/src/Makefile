@@ -39,7 +39,8 @@ E2SMFLAGS = -I$(E2SMSRC)
 
 ########libs
 
-LIBS= -lsdl -lrmr_si -lpthread -lm -lboost_system -lcrypto -lssl -lcpprest $(LOG_LIBS) $(CURL_LIBS) $(RNIB_LIBS) -lprometheus-cpp-pull -lprometheus-cpp-core -lz
+# LIBS= -lsdl -lrmr_si -lpthread -lm -lboost_system -lcrypto -lssl -lcpprest $(LOG_LIBS) $(CURL_LIBS) $(RNIB_LIBS) -lprometheus-cpp-pull -lprometheus-cpp-core -lz
+LIBS= -lrmr_si -lpthread -lm -lboost_system -lcrypto -lssl -lcpprest $(LOG_LIBS) $(CURL_LIBS) -lprometheus-cpp-pull -lprometheus-cpp-core -lz
 COV_FLAGS= -fprofile-arcs -ftest-coverage
 
 #######

@@ -42,7 +42,7 @@
 #include "subs_mgmt.hpp"
 #include "xapp_config.hpp"
 extern "C" {
-#include "rnib/rnibreader.h"
+// #include "rnib/rnibreader.h"
 }
 
 using namespace std;
@@ -76,7 +76,7 @@ public:
   }
 
   //getters/setters.
-  void set_rnib_gnblist(void);
+  // void set_rnib_gnblist(void);
   std::vector<std::string> get_rnib_gnblist(){ return rnib_gnblist; }
 
   void fetch_connected_nodeb_list();

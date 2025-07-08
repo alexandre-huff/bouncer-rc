@@ -215,15 +215,6 @@ bool ric_control_response::set_fields(SuccessfulOutcome_t *successMsg, ric_contr
 		// ASN_SEQUENCE_ADD(&(ric_acknowledge->protocolIEs), ies_riccallprocessid);
 	}
 
-	// ie_index = 2;	// FIXME Huff: RicControlOutcome (commented out since this msg flows from E2Sim to RIC)
-	// ie_index++.
-	// RICcontrolAcknowledge_IEs_t *ies_ric_cause = &IE_array[ie_index];
-	// ies_ric_cause->criticality = Criticality_reject;
-	// ies_ric_cause->id = ProtocolIE_ID_id_RICcontrolStatus;
-	// ies_ric_cause->value.present = RICcontrolAcknowledge_IEs__value_PR_RICcontrolStatus;
-	// ies_ric_cause->value.choice.RICcontrolStatus = dinput.control_status; // should be RicControlOutcome
-	//ASN_SEQUENCE_ADD(&(ric_acknowledge->protocolIEs), ies_ric_cause);
-
 	return true;
 
 };

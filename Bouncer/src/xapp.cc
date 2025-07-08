@@ -429,57 +429,57 @@ void Xapp::startup_get_policies(void){
 
 }
 
-void Xapp::set_rnib_gnblist(void) {
+// void Xapp::set_rnib_gnblist(void) {
 
-	   openSdl();
+// 	   openSdl();
 
-	   void *result = getListGnbIds();
-	   if(strlen((char*)result) < 1){
-		    mdclog_write(MDCLOG_ERR, "ERROR: no data from getListGnbIds\n");
-	        return;
-	    }
+// 	   void *result = getListGnbIds();
+// 	   if(strlen((char*)result) < 1){
+// 		    mdclog_write(MDCLOG_ERR, "ERROR: no data from getListGnbIds\n");
+// 	        return;
+// 	    }
 
-	    mdclog_write(MDCLOG_INFO, "GNB List in R-NIB %s\n", (char*)result);
-
-
-	    Document doc;
-	    ParseResult parseJson = doc.Parse<kParseStopWhenDoneFlag>((char*)result);
-	    if (!parseJson) {
-			mdclog_write(MDCLOG_ERR, "JSON parse error: %s", (char *)GetParseErrorFunc(parseJson.Code()));
-	    	return;
-	    }
-
-	    if(!doc.HasMember("gnb_list")){
-	        mdclog_write(MDCLOG_ERR, "JSON Has No GNB List Object");
-	    	return;
-	    }
-	    assert(doc.HasMember("gnb_list"));
-
-	    const Value& gnblist = doc["gnb_list"];
-	    if (gnblist.IsNull())
-	      return;
-
-	    if(!gnblist.IsArray()){
-	        mdclog_write(MDCLOG_ERR, "GNB List is not an array");
-	    	return;
-	    }
+// 	    mdclog_write(MDCLOG_INFO, "GNB List in R-NIB %s\n", (char*)result);
 
 
-	   	assert(gnblist.IsArray());
-	    for (SizeType i = 0; i < gnblist.Size(); i++) // Uses SizeType instead of size_t
-	    {
-	    	assert(gnblist[i].IsObject());
-	    	const Value& gnbobj = gnblist[i];
-	    	assert(gnbobj.HasMember("inventory_name"));
-	    	assert(gnbobj["inventory_name"].IsString());
-	    	std::string name = gnbobj["inventory_name"].GetString();
-	    	rnib_gnblist.push_back(name);
+// 	    Document doc;
+// 	    ParseResult parseJson = doc.Parse<kParseStopWhenDoneFlag>((char*)result);
+// 	    if (!parseJson) {
+// 			mdclog_write(MDCLOG_ERR, "JSON parse error: %s", (char *)GetParseErrorFunc(parseJson.Code()));
+// 	    	return;
+// 	    }
 
-	    }
-	    closeSdl();
-	    return;
+// 	    if(!doc.HasMember("gnb_list")){
+// 	        mdclog_write(MDCLOG_ERR, "JSON Has No GNB List Object");
+// 	    	return;
+// 	    }
+// 	    assert(doc.HasMember("gnb_list"));
 
-}
+// 	    const Value& gnblist = doc["gnb_list"];
+// 	    if (gnblist.IsNull())
+// 	      return;
+
+// 	    if(!gnblist.IsArray()){
+// 	        mdclog_write(MDCLOG_ERR, "GNB List is not an array");
+// 	    	return;
+// 	    }
+
+
+// 	   	assert(gnblist.IsArray());
+// 	    for (SizeType i = 0; i < gnblist.Size(); i++) // Uses SizeType instead of size_t
+// 	    {
+// 	    	assert(gnblist[i].IsObject());
+// 	    	const Value& gnbobj = gnblist[i];
+// 	    	assert(gnbobj.HasMember("inventory_name"));
+// 	    	assert(gnbobj["inventory_name"].IsString());
+// 	    	std::string name = gnbobj["inventory_name"].GetString();
+// 	    	rnib_gnblist.push_back(name);
+
+// 	    }
+// 	    closeSdl();
+// 	    return;
+
+// }
 
 /*
 	Fetches all E2 NodeBs from E2MGR that connected to the RIC, and stores

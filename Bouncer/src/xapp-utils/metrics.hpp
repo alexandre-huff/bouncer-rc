@@ -42,7 +42,7 @@ typedef struct {
 
 typedef struct {
     // std::string imsi;
-    std::unordered_map<std::string, prometheus_ue_metrics_t> metrics;  // key is gnbid
+    std::unordered_map<uint64_t, std::shared_ptr<prometheus_ue_metrics_t>> metrics;  // key is nci
 } prometheus_ue_info_t;
 
 typedef struct {
@@ -50,7 +50,11 @@ typedef struct {
     long rsrp;
     long rsrq;
     long sinr;
-    std::string nr_cgi;
+    uint16_t pci;
+    uint32_t gnbid;
+    uint64_t nci;
+    std::string mcc;
+    std::string mnc;
 } raw_ue_metrics_t;
 
 /*
@@ -61,12 +65,12 @@ public:
     PrometheusMetrics();
     ~PrometheusMetrics();
 
-    prometheus_ue_metrics_t &get_ue_metrics_instance(std::string imsi, std::string gnbid);
+    std::shared_ptr<prometheus_ue_metrics_t> get_ue_metrics_instance(std::string imsi, uint64_t nci);
     void delete_ue_metrics_instance(std::string imsi);
+    std::shared_ptr<prometheus_ue_metrics_t> create_ue_metrics_instance(
+        std::string imsi, std::string gnb_mcc, std::string gnb_mnc, uint32_t gnb_id, uint16_t pci, uint64_t nci);
 
 private:
-    prometheus_ue_metrics_t create_ue_metrics_instance(std::string imsi, std::string gnbid);
-
     std::shared_ptr<Registry> registry;
     std::shared_ptr<Exposer> exposer;
     Family<Gauge> *gauge_rrc_state;

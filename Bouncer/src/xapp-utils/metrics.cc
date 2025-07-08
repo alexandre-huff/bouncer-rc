@@ -56,95 +56,105 @@ PrometheusMetrics::PrometheusMetrics() {
 PrometheusMetrics::~PrometheusMetrics() {
     for (auto it : ues) {
         prometheus_ue_info_t &ue_data = it.second;
-        for (auto it_data : ue_data.metrics) {
-            prometheus_ue_metrics_t &data = it_data.second;
-            gauge_rrc_state->Remove(data.rrc_state);
-            gauge_rrc_state->Remove(data.rsrp);
-            gauge_rrc_state->Remove(data.rsrq);
-            gauge_rrc_state->Remove(data.sinr);
+        for (auto &it_data : ue_data.metrics) {
+            std::shared_ptr<prometheus_ue_metrics_t> &data = it_data.second;
+            gauge_rrc_state->Remove(data->rrc_state);
+            gauge_rrc_state->Remove(data->rsrp);
+            gauge_rrc_state->Remove(data->rsrq);
+            gauge_rrc_state->Remove(data->sinr);
         }
     }
 }
 
-prometheus_ue_metrics_t& PrometheusMetrics::get_ue_metrics_instance(std::string imsi, std::string gnbid) {
+std::shared_ptr<prometheus_ue_metrics_t> PrometheusMetrics::get_ue_metrics_instance(std::string imsi, uint64_t nci) {
     const auto &it_map = ues.find(imsi);    // fetch ue info
     if (it_map != ues.end()) {
-        // fetch metrics by gnb
-        const auto &it_metrics = it_map->second.metrics.find(gnbid);
-
-        if (it_metrics != it_map->second.metrics.end()) {   // already there
+        // fetch metrics by cell
+        const auto &it_metrics = it_map->second.metrics.find(nci);
+        if (it_metrics != it_map->second.metrics.end()) {
             return it_metrics->second;
-
-        } else {    // create a new metric per gnb
-            prometheus_ue_metrics_t data = create_ue_metrics_instance(imsi, gnbid);
-            it_map->second.metrics.emplace(gnbid, std::move(data));
-
-            return it_map->second.metrics.at(gnbid);
         }
-
-    } else {    // if not present we add a new entry
-        prometheus_ue_metrics_t data = create_ue_metrics_instance(imsi, gnbid);
-
-        prometheus_ue_info_t ue_info;
-        ue_info.metrics.emplace(gnbid, std::move(data));
-
-        auto &ret = ue_info.metrics.at(gnbid);
-
-        ues.emplace(imsi, std::move(ue_info));
-
-        return ret;
     }
-
+    return std::shared_ptr<prometheus_ue_metrics_t>();
 }
 
+/*
+    Deletes all metrics from a given UE
+*/
 void PrometheusMetrics::delete_ue_metrics_instance(std::string imsi) {
     const auto &it = ues.find(imsi);
     if (it != ues.end()) {
-        std::vector<std::string> nrcgi_list;
+        std::vector<uint64_t> nci_list;
 
         prometheus_ue_info_t &ue_info = it->second;
 
         for (auto &ue_metrics : ue_info.metrics) {
-            prometheus_ue_metrics_t &data = ue_metrics.second;
+            auto &data = ue_metrics.second;
 
-            gauge_rrc_state->Remove(data.rrc_state);
-            gauge_rsrp->Remove(data.rsrp);
-            gauge_rsrq->Remove(data.rsrq);
-            gauge_sinr->Remove(data.sinr);
+            gauge_rrc_state->Remove(data->rrc_state);
+            gauge_rsrp->Remove(data->rsrp);
+            gauge_rsrq->Remove(data->rsrq);
+            gauge_sinr->Remove(data->sinr);
 
-            nrcgi_list.emplace_back(ue_metrics.first);
+            nci_list.emplace_back(ue_metrics.first);
         }
 
-        for (auto &cell : nrcgi_list) {
-            ue_info.metrics.erase(cell);
+        for (auto &nci : nci_list) {
+            ue_info.metrics.erase(nci);
         }
 
         ues.erase(imsi);
     }
 }
 
-prometheus_ue_metrics_t PrometheusMetrics::create_ue_metrics_instance(std::string imsi, std::string gnbid) {
-    prometheus_ue_metrics_t data;
+std::shared_ptr<prometheus_ue_metrics_t> PrometheusMetrics::create_ue_metrics_instance(
+    std::string imsi, std::string gnb_mcc, std::string gnb_mnc, uint32_t gnb_id, uint16_t pci, uint64_t nci) {
 
-    data.rrc_state = &gauge_rrc_state->Add({
+    std::shared_ptr<prometheus_ue_metrics_t> data = std::make_shared<prometheus_ue_metrics_t>();
+    std::string gnbid = std::to_string(gnb_id);
+    std::string cellid = std::to_string(pci);
+
+    data->rrc_state = &gauge_rrc_state->Add({
         {"imsi", imsi},
-        {"gnbid", gnbid}
+        {"mcc", gnb_mcc},
+        {"mnc", gnb_mnc},
+        {"gnbid", gnbid},
+        {"pci", cellid}
     }, 0.0);
 
-    data.rsrp = &gauge_rsrp->Add({
+    data->rsrp = &gauge_rsrp->Add({
         {"imsi", imsi},
-        {"gnbid", gnbid}
+        {"mcc", gnb_mcc},
+        {"mnc", gnb_mnc},
+        {"gnbid", gnbid},
+        {"pci", cellid}
     }, 0.0);
 
-    data.rsrq = &gauge_rsrq->Add({
+    data->rsrq = &gauge_rsrq->Add({
         {"imsi", imsi},
-        {"gnbid", gnbid}
+        {"mcc", gnb_mcc},
+        {"mnc", gnb_mnc},
+        {"gnbid", gnbid},
+        {"pci", cellid}
     }, 0.0);
 
-    data.sinr = &gauge_sinr->Add({
+    data->sinr = &gauge_sinr->Add({
         {"imsi", imsi},
-        {"gnbid", gnbid}
+        {"mcc", gnb_mcc},
+        {"mnc", gnb_mnc},
+        {"gnbid", gnbid},
+        {"pci", cellid}
     }, 0.0);
+
+    const auto &it_map = ues.find(imsi);    // fetch ue info
+    if (it_map != ues.end()) {              // create a new metric per cell id
+        it_map->second.metrics.emplace(nci, data);
+
+    } else {                                // if not present we add a new entry of UE info
+        prometheus_ue_info_t ue_info;
+        ue_info.metrics.emplace(nci, data);
+        ues.emplace(imsi, std::move(ue_info));
+    }
 
     return data;
 }

@@ -21,13 +21,14 @@ ARG SCHEMA_PATH=schemas
 ARG STAGE_DIR=/tmp/bouncer-xapp
 
 #==================================================================================
-FROM nexus3.o-ran-sc.org:10002/o-ran-sc/bldr-ubuntu20-c-go:1.0.0 as ricbuild
+# FROM nexus3.o-ran-sc.org:10002/o-ran-sc/bldr-ubuntu20-c-go:1.0.0 as ricbuild
+FROM ubuntu:24.04 AS ricbuild
 
 ARG SCHEMA_PATH
 ARG STAGE_DIR
 
 # Install necessary packages
-RUN apt-get update  \
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y \
     cmake \
     git \
@@ -43,7 +44,7 @@ RUN apt-get update  \
     libffi-dev \
     libcpprest-dev \
     cpputest \
-    libhiredis-dev \
+    # libhiredis-dev \
     libcurl4-openssl-dev \
     && apt-get clean
 
@@ -62,28 +63,28 @@ RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/pack
     dpkg -i rmr_${RMR_VER}_amd64.deb rmr-dev_${RMR_VER}_amd64.deb
 
 #Install RNIB libraries
-ARG RNIB_VER=1.2.5
-RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rnib_${RNIB_VER}_all.deb/download.deb && \
-    dpkg -i rnib_${RNIB_VER}_all.deb
+# ARG RNIB_VER=1.2.5
+# RUN wget -nv --content-disposition https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rnib_${RNIB_VER}_all.deb/download.deb && \
+#     dpkg -i rnib_${RNIB_VER}_all.deb
 
 RUN git clone https://github.com/azadkuh/nlohmann_json_release.git && \
     mkdir /usr/local/include/nlohmann && \
     cp nlohmann_json_release/json.hpp /usr/local/include/nlohmann
 
 ## Install SDL Libraries
-RUN git clone https://gerrit.o-ran-sc.org/r/ric-plt/dbaas && \
-    cd dbaas/redismodule && \
-    ./autogen.sh && \
-    ./configure && \
-    make -j 4 all && \
-    make install
+# RUN git clone https://gerrit.o-ran-sc.org/r/ric-plt/dbaas && \
+#     cd dbaas/redismodule && \
+#     ./autogen.sh && \
+#     ./configure && \
+#     make -j 4 all && \
+#     make install
 
-RUN git clone https://gerrit.o-ran-sc.org/r/ric-plt/sdl && \
-    cd sdl && \
-    ./autogen.sh && \
-    ./configure && \
-    make -j 4 all && \
-    make install
+# RUN git clone https://gerrit.o-ran-sc.org/r/ric-plt/sdl && \
+#     cd sdl && \
+#     ./autogen.sh && \
+#     ./configure && \
+#     make -j 4 all && \
+#     make install
 
 ## Install rapidjson
 RUN git clone https://github.com/Tencent/rapidjson && \
@@ -127,12 +128,14 @@ COPY ${SCHEMA_PATH}/* init/routes.txt init/config-map.yaml /etc/xapp/
 
 #---------------------------------------------
 # #Build the final version
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ARG STAGE_DIR
 
 RUN apt-get update && \
-    apt-get install -y libcpprest2.10 libhiredis0.14 && \
+    apt-get install -y \
+    # libhiredis0.14 \
+    libcpprest2.10 && \
     apt-get clean
 
 ## copy just the needed libraries install them into the final image

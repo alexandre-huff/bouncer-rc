@@ -34,7 +34,7 @@
 #include <vector>
 #include <map>
 #include <set>
-#include <sdl/syncstorage.hpp>
+// #include <sdl/syncstorage.hpp>
 #include <mdclog/mdclog.h>
 
 using namespace std;

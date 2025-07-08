@@ -164,7 +164,7 @@ std::vector<RANParameter_STRUCTURE_t *> get_ran_parameter_list_items(const RANPa
     return list;
 }
 
-bool decode_NR_CGI(const NR_CGI_t *nr_cgi, std::string &mcc, std::string &mnc, std::string &nr_cellid_hex) {
+bool decode_NR_CGI(const NR_CGI_t *nr_cgi, std::string &mcc, std::string &mnc, uint64_t &nci, uint32_t &gnb_id, uint16_t &pci) {
     if (!nr_cgi) {
         mdclog_write(MDCLOG_ERR, "Unable to decode NR CGI, nil?");
         return false;
@@ -176,36 +176,24 @@ bool decode_NR_CGI(const NR_CGI_t *nr_cgi, std::string &mcc, std::string &mnc, s
         return false;
     }
 
-	// we do not consider cell here, so the cell value is 0. Thus, NCI = gnbId * 2^(36-29) + cellid
-    // we leave 7 bits for cellid
-    uint64_t nodeb_id;
-    nodeb_id = (uint64_t)nr_cgi->nRCellIdentity.buf[0] << 32;
-    nodeb_id |= (uint64_t)nr_cgi->nRCellIdentity.buf[1] << 24;
-    nodeb_id |= (uint64_t)nr_cgi->nRCellIdentity.buf[2] << 16;
-    nodeb_id |= (uint64_t)nr_cgi->nRCellIdentity.buf[3] << 8;
-    nodeb_id |= (uint64_t)nr_cgi->nRCellIdentity.buf[4];
+    // Source: 3GPP TS 38.413, Sections 9.3.1.6 and 9.3.1.7
+    nci = (uint64_t)nr_cgi->nRCellIdentity.buf[0] << 32;
+    nci |= (uint64_t)nr_cgi->nRCellIdentity.buf[1] << 24;
+    nci |= (uint64_t)nr_cgi->nRCellIdentity.buf[2] << 16;
+    nci |= (uint64_t)nr_cgi->nRCellIdentity.buf[3] << 8;
+    nci |= (uint64_t)nr_cgi->nRCellIdentity.buf[4];
 
-    nodeb_id = nodeb_id >> nr_cgi->nRCellIdentity.bits_unused;
-    nodeb_id = nodeb_id / (1 << 7); // we did not consider cellid for now
-    // TODO check https://nrcalculator.firebaseapp.com/nrgnbidcalc.html
-    // TODO check https://www.telecomhall.net/t/what-is-the-formula-for-cell-id-nci-in-5g-nr-networks/12623/2
+    // bit rotation based on 3GPP TS 38.413, Sections 9.3.1.6 and 9.3.1.7
+    nci = nci >> nr_cgi->nRCellIdentity.bits_unused;    // first, we have to rotate unused bits to the right
+    pci = nci & (36 - 29);                              // extract only the remaining bits from cell id // FIXME 29 bits is hardcoded
+    gnb_id = nci >> (36 - 29);                          // FIXME 29 bits is hardcoded
 
-    if (nodeb_id > ((1 << 29) - 1)) { // we use 29 bits to identify an E2 Node (double check)
+    if (gnb_id > ((1 << 29) - 1)) { // we use 29 bits to identify an E2 Node (double check) // FIXME 29 bits is hardcoded
         mdclog_write(MDCLOG_ERR, "Unable to decode Cell ID from NR CGI, value cannot be higher than 29 bits");
         return false;
     }
 
-	std::string padding;
-	std::stringstream ss;
-	ss << std::uppercase << std::hex << nodeb_id;
-
-	// we need to pad extra characters to complete 8 digits (required for 29 bits in hex)
-	size_t len = 8 - ss.str().length();
-	padding = padding.insert(0, len, '0');  // we pad with zeroes to reach 8 digits in the final cell idendity
-
-	nr_cellid_hex = padding + ss.str();
-
-    mdclog_write(MDCLOG_DEBUG, "NR CGI decoded to MCC=%s, MNC=%s, Cell_ID=%s", mcc.c_str(), mnc.c_str(), nr_cellid_hex.c_str());
+    mdclog_write(MDCLOG_DEBUG, "NR CGI decoded to MCC=%s, MNC=%s, gNodeB ID=%u, PCI=%u, NCI=%lu", mcc.c_str(), mnc.c_str(), gnb_id, pci, nci);
 
     return true;
 }

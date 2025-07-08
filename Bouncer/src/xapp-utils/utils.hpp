@@ -41,7 +41,7 @@ RANParameter_STRUCTURE_Item_t *get_ran_parameter_structure_item(const RANParamet
 
 std::vector<RANParameter_STRUCTURE_t *> get_ran_parameter_list_items(const RANParameter_LIST_t *ranp_list);
 
-bool decode_NR_CGI(const NR_CGI_t *nr_cgi, std::string &mcc, std::string &mnc, std::string &nr_cellid_hex);
+bool decode_NR_CGI(const NR_CGI_t *nr_cgi, std::string &mcc, std::string &mnc, uint64_t &nci, uint32_t &gnb_id, uint16_t &pci);
 
 
 /// @brief Retrieves the data of a given RAN Parameter Value

@@ -62,7 +62,7 @@ private:
 	bool processRanParameter21503(RANParameter_ValueType_Choice_Structure_t *p21503, std::vector<raw_ue_metrics_t> &ue_metrics);
 	bool processRanParameter21528(RANParameter_ValueType_Choice_List_t *p21528, std::vector<raw_ue_metrics_t> &ue_metrics);
 	bool process_NR_Cell_data(RANParameter_STRUCTURE_Item_t *nrcell, std::string &mcc, std::string &mnc,
-								std::string &cellid_hex, long &rsrp, long &rsrq, long &sinr);
+								uint64_t &nci, uint32_t &gnbid, uint16_t &pci, long &rsrp, long &rsrq, long &sinr);
 
 public:
 	//constructor for xapp_id.
