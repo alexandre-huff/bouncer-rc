@@ -35,17 +35,17 @@ PrometheusMetrics::PrometheusMetrics() {
             .Register(*registry);
     gauge_rsrp = &BuildGauge()
             .Name("e2sm_rc_report_style4_rsrp")
-            .Help("E2SM-RC REPORT Style 4 RSRP (Integer range 0..127)")
+            .Help("E2SM-RC REPORT Style 4 RSRP")
             .Labels({{"HOSTNAME", hostname}})
             .Register(*registry);
     gauge_rsrq = &BuildGauge()
             .Name("e2sm_rc_report_style4_rsrq")
-            .Help("E2SM-RC REPORT Style 4 RSRQ (Integer range 0..127)")
+            .Help("E2SM-RC REPORT Style 4 RSRQ")
             .Labels({{"HOSTNAME", hostname}})
             .Register(*registry);
     gauge_sinr = &BuildGauge()
             .Name("e2sm_rc_report_style4_sinr")
-            .Help("E2SM-RC REPORT Style 4 SINR (Integer range 0..127)")
+            .Help("E2SM-RC REPORT Style 4 SINR")
             .Labels({{"HOSTNAME", hostname}})
             .Register(*registry);
 
@@ -114,29 +114,31 @@ std::shared_ptr<prometheus_ue_metrics_t> PrometheusMetrics::create_ue_metrics_in
     std::string gnbid = std::to_string(gnb_id);
     std::string cellid = std::to_string(pci);
 
-    data->rrc_state = &gauge_rrc_state->Add({
-        {"imsi", imsi},
-        {"mcc", gnb_mcc},
-        {"mnc", gnb_mnc},
-        {"gnbid", gnbid},
-        {"pci", cellid}
-    }, 0.0);
+    // TODO IMPORTANT: commented out to decrease the overhead of unused data scrapped by Prometheus
+    // All RRC State, RSRP, and RSRQ are already working
+    // data->rrc_state = &gauge_rrc_state->Add({
+    //     {"imsi", imsi},
+    //     {"mcc", gnb_mcc},
+    //     {"mnc", gnb_mnc},
+    //     {"gnbid", gnbid},
+    //     {"pci", cellid}
+    // }, 0.0);
 
-    data->rsrp = &gauge_rsrp->Add({
-        {"imsi", imsi},
-        {"mcc", gnb_mcc},
-        {"mnc", gnb_mnc},
-        {"gnbid", gnbid},
-        {"pci", cellid}
-    }, 0.0);
+    // data->rsrp = &gauge_rsrp->Add({
+    //     {"imsi", imsi},
+    //     {"mcc", gnb_mcc},
+    //     {"mnc", gnb_mnc},
+    //     {"gnbid", gnbid},
+    //     {"pci", cellid}
+    // }, 0.0);
 
-    data->rsrq = &gauge_rsrq->Add({
-        {"imsi", imsi},
-        {"mcc", gnb_mcc},
-        {"mnc", gnb_mnc},
-        {"gnbid", gnbid},
-        {"pci", cellid}
-    }, 0.0);
+    // data->rsrq = &gauge_rsrq->Add({
+    //     {"imsi", imsi},
+    //     {"mcc", gnb_mcc},
+    //     {"mnc", gnb_mnc},
+    //     {"gnbid", gnbid},
+    //     {"pci", cellid}
+    // }, 0.0);
 
     data->sinr = &gauge_sinr->Add({
         {"imsi", imsi},

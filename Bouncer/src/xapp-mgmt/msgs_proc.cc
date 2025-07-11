@@ -617,13 +617,15 @@ void XappMsgHandler::operator()(rmr_mbuf_t *message, bool *resend)
 							mdclog_write(MDCLOG_DEBUG, "metrics pointer is %p imsi=%s, nci=%lu, rrc_state=%d, %ld %ld %ld\n",
 									metrics.get(), imsi.c_str(), data.nci, data.primary_cell, data.rsrp, data.rsrq, data.sinr);
 
-							if (data.primary_cell) {
-								metrics->rrc_state->Set(1);
-							} else {
-								metrics->rrc_state->Set(0);
-							}
-							metrics->rsrp->Set(data.rsrp);
-							metrics->rsrq->Set(data.rsrq);
+							// TODO IMPORTANT: commented out to decrease the overhead of unused data scrapped by Prometheus
+							// All RRC State, RSRP, and RSRQ are already working
+							// if (data.primary_cell) {
+							// 	metrics->rrc_state->Set(1);
+							// } else {
+							// 	metrics->rrc_state->Set(0);
+							// }
+							// metrics->rsrp->Set(data.rsrp);
+							// metrics->rsrq->Set(data.rsrq);
 							metrics->sinr->Set(data.sinr);
 						}
 
