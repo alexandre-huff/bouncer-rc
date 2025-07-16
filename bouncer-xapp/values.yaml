@@ -45,6 +45,12 @@ image_pull_policy: IfNotPresent
 # Environment variables that will be injected
 appenv: {}
 
+# Prometheus annotations for metrics scraping
+annotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+  prometheus.io/path: "/metrics"
+
 # Liveness probe definition. If empty, liveness probe will be disabled
 livenessProbe: {}
 
@@ -88,6 +94,10 @@ messaging:
     description: rmr route port for Bouncer xApp
     name: rmr-route
     port: 4561
+  - container: bouncer-xapp
+    description: prometheus metrics endpoint
+    name: metrics
+    port: 9090
 rmr:
   maxSize: 2072
   numWorkers: 1
