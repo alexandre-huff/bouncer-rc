@@ -40,7 +40,7 @@ storage:
 replicaCount: 1
 
 # Image pulling policy
-image_pull_policy: IfNotPresent
+image_pull_policy: Always
 
 # Environment variables that will be injected
 appenv: {}
@@ -66,8 +66,8 @@ fullname: {}
 ###############    The following are from the xApp descriptor     ###############
 containers:
 - image:
-    name: zanattabruno/bouncer-rc
-    registry: registry.hub.docker.com
+    name: bouncer-rc
+    registry: "registry-docker-registry.registry.svc.cluster.local:5000"
     tag: TNSM-25
   name: bouncer-xapp
 http:
