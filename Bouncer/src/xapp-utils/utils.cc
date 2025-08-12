@@ -185,8 +185,9 @@ bool decode_NR_CGI(const NR_CGI_t *nr_cgi, std::string &mcc, std::string &mnc, u
 
     // bit rotation based on 3GPP TS 38.413, Sections 9.3.1.6 and 9.3.1.7
     nci = nci >> nr_cgi->nRCellIdentity.bits_unused;    // first, we have to rotate unused bits to the right
-    pci = nci & (36 - 29);                              // extract only the remaining bits from cell id // FIXME 29 bits is hardcoded
-    gnb_id = nci >> (36 - 29);                          // FIXME 29 bits is hardcoded
+    constexpr uint8_t cell_id_bits = 36 - 29;           // FIXME 29 bits is hardcoded (gNB-ID length); leftover bits are NR Cell Identity
+    pci = static_cast<uint16_t>(nci & ((1ULL << cell_id_bits) - 1)); // keep the lower cell_id_bits bits (e.g., 7 bits -> 0..127)
+    gnb_id = static_cast<uint32_t>(nci >> cell_id_bits);             // remaining upper bits form the gNB-ID
 
     if (gnb_id > ((1 << 29) - 1)) { // we use 29 bits to identify an E2 Node (double check) // FIXME 29 bits is hardcoded
         mdclog_write(MDCLOG_ERR, "Unable to decode Cell ID from NR CGI, value cannot be higher than 29 bits");
