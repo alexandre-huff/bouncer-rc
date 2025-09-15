@@ -5,3 +5,4 @@
 b_xapp_main
 
 *.vscode
+.github/*
