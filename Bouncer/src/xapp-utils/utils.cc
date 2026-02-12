@@ -185,7 +185,7 @@ bool decode_NR_CGI(const NR_CGI_t *nr_cgi, std::string &mcc, std::string &mnc, u
 
     // bit rotation based on 3GPP TS 38.413, Sections 9.3.1.6 and 9.3.1.7
     nci = nci >> nr_cgi->nRCellIdentity.bits_unused;    // first, we have to rotate unused bits to the right
-    pci = nci & (36 - 29);                              // extract only the remaining bits from cell id // FIXME 29 bits is hardcoded
+    pci = nci & (1 << (36 - 29) - 1);                   // extract only the remaining bits from cell id // FIXME 29 bits is hardcoded
     gnb_id = nci >> (36 - 29);                          // FIXME 29 bits is hardcoded
 
     if (gnb_id > ((1 << 29) - 1)) { // we use 29 bits to identify an E2 Node (double check) // FIXME 29 bits is hardcoded
