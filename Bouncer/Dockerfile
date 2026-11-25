@@ -46,6 +46,8 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     cpputest \
     # libhiredis-dev \
     libcurl4-openssl-dev \
+    civetweb \
+    libcivetweb-dev \
     && apt-get clean
 
 WORKDIR ${STAGE_DIR}
@@ -98,16 +100,17 @@ RUN git clone https://github.com/Tencent/rapidjson && \
     # rm -rf rapidjson
 
 RUN git clone https://github.com/jupp0r/prometheus-cpp.git && \
-    cd prometheus-cpp && \
-    git submodule init && git submodule update && \
-    mkdir build && cd build && \
-    cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF && \
-    cmake --build . --parallel 4 && \
+    mkdir -p prometheus-cpp/build && \
+    cd prometheus-cpp/build && \
+    cmake .. \
+      -DBUILD_SHARED_LIBS=ON \
+      -DENABLE_PUSH=OFF \
+      -DENABLE_COMPRESSION=OFF \
+      -DENABLE_TESTING=OFF \
+      -DCPACK_GENERATOR=DEB && \
+    cmake --build . --parallel $(nproc) && \
     cmake --install . && \
-    # Building packages as well to install in the final image
-    cmake .. -DCPACK_GENERATOR=DEB -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF && \
     cmake --build . --target package --parallel $(nproc)
-
 
 ##-----------------------------------
 # Now install the program
@@ -135,7 +138,8 @@ ARG STAGE_DIR
 RUN apt-get update && \
     apt-get install -y \
     # libhiredis0.14 \
-    libcpprest2.10 && \
+    libcpprest2.10 \
+    libcivetweb1 && \
     apt-get clean
 
 ## copy just the needed libraries install them into the final image
